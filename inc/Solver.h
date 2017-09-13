@@ -30,19 +30,36 @@ inline pair<int,int> GetRankSize()
     return make_pair(world_rank, world_size);
 }
 
-inline pair<long long,long long> GetStartEnd(int Min, int Max)
+inline pair<long long,long long> GetStartEnd(long long Min, long long Max)
 {
     int rank, nrank;
     tie(rank,nrank) = GetRankSize();
 
-    assert(Max > Min);
-    int n = Max - Min + 1;
+    if(Max < Min) return make_pair(Min, Max);
 
-    long long start = rank/(nrank+0.) * n;
-    long long end = (rank+1)/(nrank+0.) * n- 1;
+    long long n = Max - Min + 1;
 
+    //long long start = rank/(nrank+0.) * n;
+    //long long end = (rank+1)/(nrank+0.) * n- 1;
+
+    long long start, end;
+
+    if(nrank <= n) {
+        start =  (rank*n)   /nrank;
+        end   = ((rank+1)*n)/nrank - 1;
+    }
+    else {
+        if(rank < n)
+            start = end = rank;
+        else {
+            start = 0;
+            end = -1;
+        }
+
+    }
     start += Min;
     end += Min;
+
     return make_pair(start, end);
 }
 
@@ -137,7 +154,7 @@ struct Solver {
     const double eps = 1e-7;
     const int Nint; // kT nodes in Nintegral
     const int N;// = 32*16 + 1; //must be 2*n+1
-    const int Nrap = 2*129;
+    const int Nrap = 16*129;
     const bool toTrivial = true;
 
     const double Lmin= log(1e-2), Lmax = log(1e6);
@@ -156,7 +173,8 @@ struct Solver {
     }
 
 
-    vector<arma::mat> matN, matNDiag;
+    //vector<arma::mat> matN, matNDiag;
+    arma::cube matN, matNDiag, matNInv;
     vector<arma::vec> PhiRapN, Phi0N;
 
     arma::mat extMat, redMat;
@@ -228,8 +246,12 @@ struct Solver {
 
     void InitMat() {
 
-        matN.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
-        matNDiag.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
+        //matN.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
+        //matNDiag.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
+
+        matN.zeros( N, N, Nrap);
+        matNDiag.zeros( N, N, Nrap);
+        matNInv.zeros( N, N, Nrap);
 
         int fac = (Nint-1)/(N-1);
 
@@ -295,8 +317,11 @@ struct Solver {
             //cout << redMat << endl;
             //cout << extMat << endl;
 
-            matN[y]     = redMat * mTemp * extMat;
-            matNDiag[y] = redMat * mDiagTemp * extMat;
+            matN.slice(y)     =  redMat * mTemp * extMat;
+            matNDiag.slice(y) = redMat * mDiagTemp * extMat;
+
+
+
 
             /*
             for(int i = 0; i < Nint; ++i)  //loop over L
@@ -314,13 +339,22 @@ struct Solver {
 
         }
 
+        cout << "Reduce start" << endl;
         //Merge things together
+        MPI_Allreduce(MPI_IN_PLACE, matN.memptr(), matN.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, matNDiag.memptr(), matNDiag.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
-        cout << "Broatcast start" << endl;
-        for(int y = 0; y < Nrap; ++y) { 
-          MPI_Allreduce(MPI_IN_PLACE, matN[y].memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-          MPI_Allreduce(MPI_IN_PLACE, matNDiag[y].memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+        for(int y = start; y <= end; ++y) { 
+            matNInv.slice(y) = inv(arma::mat(N,N,arma::fill::eye) - 0.5*stepY*matN.slice(0) -matNDiag.slice(y));
         }
+        MPI_Allreduce(MPI_IN_PLACE, matNInv.memptr(), matNInv.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+
+        //MPI_Finalize();
+        //exit(0);
+        //for(int y = 0; y < Nrap; ++y) { 
+          //MPI_Allreduce(MPI_IN_PLACE, matN.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+          //MPI_Allreduce(MPI_IN_PLACE, matNDiag.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+        //}
 
         /*
         for(int y = start; y <=end; ++y) {
@@ -329,7 +363,7 @@ struct Solver {
             MPI_Bcast(matNDiag[y].memptr(), N*N, MPI_DOUBLE, rank, MPI_COMM_WORLD);
         }
         */
-        cout << "Broatcast done" << endl;
+        cout << "Reduce done" << endl;
 
         //exit(0);
 
@@ -356,25 +390,6 @@ struct Solver {
         */
     }
 
-    vector<double> GetLinSolution(const vector<vector<double>> &MatEq, const vector<double> &y) {
-        //cout 
-        arma::mat M(N,N);
-        for(int i = 0; i < N; ++i)
-        for(int j = 0; j < N; ++j){
-            M(i,j) = MatEq[i][j];
-            //M(i,j) = -factor*Mat[i][j];
-            //if(i == j) M(i,j) += 1;
-        }
-        arma::vec v(N);
-        for(int i = 0; i < N; ++i)
-            v(i) = y[i];
-        arma::vec res = arma::solve(M,v);
-
-        vector<double> Res(N);
-        for(int i = 0; i < N; ++i)
-            Res[i] = res[i];
-        return Res;
-    }
 
     arma::vec GetLinSolution(const arma::mat &Mat, const arma::vec &y) {
        return arma::solve(Mat, y); 
@@ -429,25 +444,20 @@ struct Solver {
 
 
 
-    vector<double> IterSolution(const vector<vector<double>> &Mat, double factor, const vector<double> &y) {
-        vector<double> yNow = y;
-        vector<double> yTemp(N, 0.);
-        vector<double> ySum = y;
+    arma::vec IterSolution(const arma::mat &Mat, double factor, const arma::vec &y) {
+        arma::vec yNow = y;
+        arma::vec ySum = y;
+
         double diff = 0;
         for(int i = 0; i < 20; ++i) {
-            std::fill(yTemp.begin(), yTemp.end(), 0.0);
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l)
-                yTemp[k] += factor * Mat[k][l] * yNow[l];
-            yNow = yTemp;
+            yNow = factor * Mat * yNow;
 
             diff = 0;
             for(int k = 0; k < N; ++k)
-                diff = max(diff, abs(yNow[k]) / (1e-13+abs(yNow[k]) + abs(ySum[k])));
+                diff = max(diff, abs(yNow[k]) / (1e-13+abs(yNow(k)) + abs(ySum(k))));
             //cout <<"Diff " <<  i << " "<< diff << endl;
 
-            for(int k = 0; k < N; ++k)
-                ySum[k] += yNow[k];
+            ySum += yNow;
 
             //cout << "Diff is " << diff << endl;
             if(diff < 1e-9) break;
@@ -466,7 +476,7 @@ struct Solver {
 
         //Classical approach
         if(start == 0) {
-            arma::mat MatEq = arma::mat(N,N,arma::fill::eye) -  matNDiag[0];
+            arma::mat MatEq = arma::mat(N,N,arma::fill::eye) -  matNDiag.slice(0);
             if(putZero) {
                 PhiRapN[0] = arma::vec(N, arma::fill::zeros);
             }
@@ -481,16 +491,26 @@ struct Solver {
 
         for(int y = start+1; y < Nrap; ++y) {
             //Starting point of evol with 0.5 (Trapezius)
-            arma::vec yTemp = 0.5 * matN[y] * PhiRapN[0];
 
+            arma::vec yTemp(N, arma::fill::zeros);
+
+            int start, end;
+            tie(start,end) = GetStartEnd(1, y-1); //from 1 to y-1
+            //cout << "Start+end|nrap " << start <<" "<< end <<"|" << y-1<< endl;
             //Remaining without mult
-            for(int d = 1; d < y; ++d)
-                yTemp += matN[d] * PhiRapN[y-d];
+            for(int d = start; d <= end; ++d)
+                yTemp += matN.slice(d) * PhiRapN[y-d];
+
+            MPI_Allreduce(MPI_IN_PLACE, yTemp.memptr(), yTemp.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+
+            yTemp += 0.5 * matN.slice(y) * PhiRapN[0];
+
 
             //Whole right hand side
             yTemp = stepY * yTemp + Phi0N[y];
             
-            cout <<"Rap point " << y << endl;
+            if(start == 1)
+                cout <<"Rap point " << y << endl;
             /*
             auto matNow = mat[0]; //Adding diagonal DGLAP term
             for(int k = 0; k < N; ++k)
@@ -498,7 +518,7 @@ struct Solver {
                 matNow[k][l] += matDiag[y][k][l];
             */
 
-            arma::mat matEq = arma::mat(N,N,arma::fill::eye) - 0.5*stepY*matN[0] -matNDiag[y];
+            //arma::mat matEq = arma::mat(N,N,arma::fill::eye) - 0.5*stepY*matN.slice(0) -matNDiag.slice(y);
 
             //vector<double> Pred = PhiRap[y-1];
             //if(y >= 4)
@@ -507,7 +527,11 @@ struct Solver {
 
 
             //PhiRap[y] = GetRegSolution(matEq, yTemp, Pred);
-            PhiRapN[y] = GetLinSolution(matEq, yTemp);
+            //PhiRapN[y] = GetLinSolution(matEq, yTemp);
+            PhiRapN[y] = matNInv.slice(y) * yTemp;
+
+            //PhiRapN[y] =  IterSolution(matEq, double factor, const arma::vec &y);
+
 
             bool isGood = true;
 
@@ -536,18 +560,18 @@ struct Solver {
 
             //kT spectrum for particular bin y
             //Starting point of evol with 0.5 (Trapezius)
-            arma::vec yTemp = 0.5*(matN[y] * PhiRapN[0] + matN[0] * PhiRapN[y]);
+            arma::vec yTemp = 0.5*(matN.slice(y) * PhiRapN[0] + matN.slice(0) * PhiRapN[y]);
 
             //Remaining without mult
             for(int d = 1; d < y; ++d) {
-                yTemp += matN[d] * PhiRapN[y-d];
+                yTemp += matN.slice(d) * PhiRapN[y-d];
             }
 
             //Whole right hand side
             yTemp = yTemp * stepY + Phi0N[y];
 
             //Diag part (=virtual DGLAP term)
-            yTemp += matNDiag[y] * PhiRapN[y];
+            yTemp += matNDiag.slice(y) * PhiRapN[y];
 
             PhiRapNew[y] = yTemp;
         }
@@ -572,7 +596,7 @@ struct Solver {
 
 
     arma::vec GetRHS(const arma::vec &PHI) {
-        arma::vec dPhi = matN[0] * PHI;
+        arma::vec dPhi = matN.slice(0) * PHI;
         return dPhi;
     }
 

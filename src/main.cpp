@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     double yNew = log(1e8/1e2);
     int Ny = 280;
     cout << "Starting " << endl;
-    Solver sol512(1024+1);
+    Solver sol512(512+1);
     sol512.InitF([](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
