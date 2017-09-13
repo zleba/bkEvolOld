@@ -155,9 +155,6 @@ struct Solver {
         tie(redMat,extMat) = GetTransMatrices(N, Nint, toTrivial);
     }
 
-    vector<vector<vector<double>>> mat, matDiag, matTest;
-    //vector<double> Phi0; //function to evolve
-    vector<vector<double>> PhiRap, Phi0;
 
     vector<arma::mat> matN, matNDiag;
     vector<arma::vec> PhiRapN, Phi0N;
@@ -230,21 +227,9 @@ struct Solver {
 
 
     void InitMat() {
-        mat.resize(Nrap); //Nrap * N*N, evolution matrix
-        for(auto & m : mat) {
-            m.resize(N);
-            for(auto & r: m)
-                r.resize(N, 0.);
-        }
-        matTest = mat; //set to ZEROS
-        matDiag = mat; //matDiag for the z-diagonal part (set to ZEROS)
 
         matN.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
         matNDiag.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
-
-
-        vector<arma::mat> matMPI(Nrap, arma::mat(N,N,arma::fill::zeros));
-        vector<arma::mat> matMPIDiag(Nrap, arma::mat(N,N,arma::fill::zeros));
 
         int fac = (Nint-1)/(N-1);
 
@@ -310,10 +295,8 @@ struct Solver {
             //cout << redMat << endl;
             //cout << extMat << endl;
 
-            //matN[y]     = redMat * mTemp * extMat;
-            //matNDiag[y] = redMat * mDiagTemp * extMat;
-            matMPI[y]     = redMat * mTemp * extMat;
-            matMPIDiag[y] = redMat * mDiagTemp * extMat;
+            matN[y]     = redMat * mTemp * extMat;
+            matNDiag[y] = redMat * mDiagTemp * extMat;
 
             /*
             for(int i = 0; i < Nint; ++i)  //loop over L
@@ -333,13 +316,20 @@ struct Solver {
 
         //Merge things together
 
+        cout << "Broatcast start" << endl;
         for(int y = 0; y < Nrap; ++y) { 
-          MPI_Allreduce(matMPI[y].memptr(), matN[y].memptr(), N*N, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
-          MPI_Allreduce(matMPIDiag[y].memptr(), matNDiag[y].memptr(), N*N, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+          MPI_Allreduce(MPI_IN_PLACE, matN[y].memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+          MPI_Allreduce(MPI_IN_PLACE, matNDiag[y].memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
         }
 
-
-        cout << "All right " << endl;
+        /*
+        for(int y = start; y <=end; ++y) {
+            int rank = GetRankSize().first;
+            MPI_Bcast(matN[y].memptr(), N*N, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+            MPI_Bcast(matNDiag[y].memptr(), N*N, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+        }
+        */
+        cout << "Broatcast done" << endl;
 
         //exit(0);
 
@@ -532,239 +522,68 @@ struct Solver {
 
     }
 
-    void Evolve() {
-        double stepY = (rapMax - rapMin) / (Nrap-1);
-
-        //PhiRap[0] = Phi0;
-
-        int start = 0;
-
-        //Classical approach
-        if(start == 0) {
-            auto MatEq = matDiag[0];
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l) {
-                MatEq[k][l] *= -1;
-                if(k == l) MatEq[k][l] += 1;
-                assert(isfinite(MatEq[k][l]));
-            }
-            if(putZero)
-                PhiRap[0].resize(N, 0.);
-            else
-                PhiRap[0] = GetLinSolution(MatEq, Phi0[0]);
-
-
-            //if(
-
-            //for(int i = 0; i < N; ++i)
-                //cout << i << " "<< PhiRap[0][i] << endl;
-            //exit(0);
-        }
-        else { //Dummy start for DGLAP
-            for(int y = 0; y <= start; ++y)
-                PhiRap[y] = Phi0[y];
-        }
-
-
-        for(int y = start+1; y < Nrap; ++y) {
-            vector<double> yTemp(N,0.);
-            //Starting point of evol with 0.5 (Trapezius)
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l)
-                yTemp[k] += mat[y][k][l] * PhiRap[0][l];
-            for(auto &v : yTemp) v /= 2;
-
-            //Remaining without mult
-            for(int d = 1; d < y; ++d) {
-                #pragma omp parallel for
-                for(int k = 0; k < N; ++k)
-                for(int l = 0; l < N; ++l)
-                    yTemp[k] += mat[d][k][l] * PhiRap[y-d][l];
-            }
-
-            //Whole right hand side
-            for(int k = 0; k < N; ++k)
-                yTemp[k] = yTemp[k] * stepY + Phi0[y][k];
-            
-            
-            /*
-            auto matNow = mat[0]; //Adding diagonal DGLAP term
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l)
-                matNow[k][l] += matDiag[y][k][l];
-            */
-
-            auto matEq = mat[0];
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l) {
-                matEq[k][l] *= -0.5*stepY;
-                matEq[k][l] -= matDiag[y][k][l];
-                if(k == l) matEq[k][l] += 1;
-                assert(isfinite(matEq[k][l]));
-            }
-            
-            for(int k = 0; k < N; ++k)
-                assert(isfinite(yTemp[k]));
-
-
-            //PhiRap[y] = IterSolution(matNow, 0.5 * stepY, yTemp);
-            //auto myComp2 = GetLinSolution(matEq, yTemp);
-
-            vector<double> Pred = PhiRap[y-1];
-
-            //if(y >= 4)
-                //for(int k = 0; k < N; ++k)
-                    //Pred[k] += PhiRap[y-1][k] - PhiRap[y-2][k];
-
-
-            //PhiRap[y] = GetRegSolution(matEq, yTemp, Pred);
-            PhiRap[y] = GetLinSolution(matEq, yTemp);
-
-            bool isGood = true;
-            for(int k = 0; k < N; ++k)
-                if(!isfinite(PhiRap[y][k])) isGood = false;
-
-
-            //cout << "Id of y = " << y << endl;
-            if(!isGood && 0) {
-                cout << "Id of y = " << y << endl;
-                
-                arma::mat M(N,N);
-                for(int i = 0; i < N; ++i)
-                for(int j = 0; j < N; ++j)
-                    M(i,j) = matEq[i][j];
-                //cout <<"Determinant is " <<  arma::det(M) << endl;
-                //cout <<"Rank is " <<  arma::rank(M) << endl;
-
-                double s = 0;
-                double sr = 0;
-                double Min = 1e100;
-                double Max =-1e100;
-                for(int j = 0; j < N; ++j) {
-                    s += 0;//myComp[j];
-                    sr += PhiRap[y][j];
-                    Min = min(Min, PhiRap[y][j]);
-                    Max = max(Max, PhiRap[y][j]);
-                }
-
-                //cout <<"Condition is " <<  arma::cond(M) <<" "<< s<<" "<<sr <<":" << Min <<" "<< Max << endl;
-
-                for(int j = 0; j < 10; ++j)
-                    cout << y<<" " << j <<" "<< PhiRap[y][j] << endl;
-
-                /*
-                for(int j = 0; j < N; ++j)
-                    cout << j <<" "<< PhiRap[y][j] << endl;
-                cout << "Input vec " << endl;
-                for(int j = 0; j < N; ++j)
-                    cout << j <<" "<< yTemp[j] << endl;
-                */
-
-            }
-            //for(int i = 0; i < N; ++i)
-                //cout << i << " "<< PhiRap[y][i] <<" "<< test[i] << endl;
-
-            //for(int j = 0; j < 10; ++j)
-                //cout <<"Pusa "<< y<<" " << j <<" "<< PhiRap[y][j] << endl;
-
-
-
-            //PhiRap[y] = yTemp;
-        }
-
-        //for(int j = 0; j < N; ++j)
-            //cout << "RADEK "<<" " << j <<" "<< PhiRap[0][j] << endl;
-        //exit(0);
-
-    }
 
     void DoIteration() {
         const double stepY = (rapMax - rapMin) / (Nrap-1);
 
-        vector<vector<double>> PhiRapNew(Nrap);
+        //vector<vector<double>> PhiRapNew(Nrap);
+        vector<arma::vec> PhiRapNew(Nrap);
 
-        PhiRapNew[0] = Phi0[0];
-        for(int k = 0; k < N; ++k)
-        for(int l = 0; l < N; ++l)
-            PhiRapNew[0][k] += matDiag[0][k][l] * PhiRap[0][l];
 
+        PhiRapNew[0] = Phi0N[0] + matNDiag[0] * PhiRapN[0];
 
         for(int y = 1; y < Nrap; ++y) {
-            vector<double> yTemp(N,0.); //kT spectrum for particular bin y
+
+            //kT spectrum for particular bin y
             //Starting point of evol with 0.5 (Trapezius)
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l) {
-                yTemp[k] += mat[y][k][l] * PhiRap[0][l];
-                yTemp[k] += mat[0][k][l] * PhiRap[y][l];
-            }
-            for(auto &v : yTemp) v /= 2;
+            arma::vec yTemp = 0.5*(matN[y] * PhiRapN[0] + matN[0] * PhiRapN[y]);
 
             //Remaining without mult
             for(int d = 1; d < y; ++d) {
-                #pragma omp parallel for
-                for(int k = 0; k < N; ++k)
-                for(int l = 0; l < N; ++l)
-                    yTemp[k] += mat[d][k][l] * PhiRap[y-d][l];
+                yTemp += matN[d] * PhiRapN[y-d];
             }
 
-
             //Whole right hand side
-            for(int k = 0; k < N; ++k)
-                yTemp[k] = yTemp[k] * stepY + Phi0[y][k];
+            yTemp = yTemp * stepY + Phi0N[y];
 
+            //Diag part (=virtual DGLAP term)
+            yTemp += matNDiag[y] * PhiRapN[y];
 
-            for(int k = 0; k < N; ++k)
-            for(int l = 0; l < N; ++l)
-                yTemp[k] += matDiag[y][k][l] * PhiRap[y][l];
-
-
-
-            
             PhiRapNew[y] = yTemp;
         }
-        PhiRap = PhiRapNew;
+        PhiRapN = PhiRapNew;
     }
     
     void RunIterations(int Niter, bool init = true) {
         //Init PhiRap 
         if(init) {
-            assert(Phi0.size() == PhiRap.size());
-            for(int y = 0; y < PhiRap.size(); ++y)
-                PhiRap[y] = Phi0[y];
+            assert(Phi0N.size() == PhiRapN.size());
+            for(int y = 0; y < PhiRapN.size(); ++y)
+                PhiRapN[y] = Phi0N[y];
         }
 
         //Do itrerations
         for(int i = 0; i < Niter; ++i) {
             DoIteration();
             cout << "Iteration " << i <<" done." << endl;
-            cout << "Phi[kT0] = " << PhiRap[Nrap-1][0] << endl;
+            cout << "Phi[kT0] = " << PhiRapN[Nrap-1](0) << endl;
         }
     }
 
 
-    vector<double> GetRHS(const vector<double> &PHI) {
-        vector<double> dPhi(N,0.);
-        //#pragma omp parallel for
-        for(int i = 0; i < N; ++i) { 
-            for(int j = 0; j < N; ++j) {
-               dPhi[i] += mat[0][i][j] * PHI[j]; 
-            }
-        }
+    arma::vec GetRHS(const arma::vec &PHI) {
+        arma::vec dPhi = matN[0] * PHI;
         return dPhi;
     }
 
     void Step(double delta) {
         static int y = 0;
-        if(y == 0) 
-            PhiRap[0] = Phi0[0];
+        if(y == 0) PhiRapN[0] = Phi0N[0];
 
-        vector<double> dPhi = GetRHS(PhiRap[0]);
+        arma::vec dPhi = GetRHS(PhiRapN[0]);
         ++y;
-        for(int i = 0; i < N; ++i) 
-            PhiRap[0][i] += delta * dPhi[i];
+        PhiRapN[0] += delta * dPhi;
 
-        //for(int k = 0; k < 30; ++k)
-            //cout << " y i " << y <<" "<< k <<" "<< PhiRap[0][k] << endl;
     }
 
 
@@ -772,6 +591,7 @@ struct Solver {
     void InitF(function<double(double, double)> fun) {
         const double stepY = (rapMax-rapMin) / (Nrap-1);
         
+        /*
         //Old version
         Phi0.resize(Nrap);
         for(int y = 0; y < Nrap; ++y) {
@@ -785,6 +605,7 @@ struct Solver {
         PhiRap.resize(Nrap);
         for(auto &ph : PhiRap)
             ph.resize(N, 0.);
+        */
 
         //New version
         Phi0N.resize(Nrap);
@@ -801,7 +622,7 @@ struct Solver {
         PhiRapN.resize(Nrap, arma::vec(N, arma::fill::zeros));
     }
 
-    double Interpolate(double y, double L, bool isNew=false) {
+    double Interpolate(double y, double L) {
 
         y = max(y, rapMin);
         y = min(y, rapMax);
@@ -849,18 +670,10 @@ struct Solver {
 
         double fLL, fLR, fRL, fRR;
 
-        if(isNew) {
-            fLL = PhiRapN[yId](LId);
-            fLR = PhiRapN[yId](LId+1);
-            fRL = PhiRapN[yId+1](LId);
-            fRR = PhiRapN[yId+1](LId+1);
-        }
-        else {
-            fLL = PhiRap[yId][LId];
-            fLR = PhiRap[yId][LId+1];
-            fRL = PhiRap[yId+1][LId];
-            fRR = PhiRap[yId+1][LId+1];
-        }
+        fLL = PhiRapN[yId](LId);
+        fLR = PhiRapN[yId](LId+1);
+        fRL = PhiRapN[yId+1](LId);
+        fRR = PhiRapN[yId+1](LId+1);
 
         bool canBeLog = fLL > 0 && fLR > 0 && fRL > 0 && fRR > 0;
             
@@ -900,7 +713,7 @@ struct Solver {
             double kt2 = exp(L);
             double x = exp(-yNow);
 
-            cout << x << " "<< kt2 <<"  " << PhiRap[y][l] << " "<< PhiRapN[y](l) << endl;
+            cout << x << " "<< kt2 <<"  " <<  PhiRapN[y](l) << endl;
         }
     }
 
@@ -923,8 +736,7 @@ struct Solver {
                 double LNow = i*LStepMich + log(0.01);
                 if(i == 99) LNow = log(1e6)-1e-9;
                 double res = Interpolate(yNow, LNow);
-                double resNew = Interpolate(yNow, LNow, true);
-                /*if(yNow == 0)*/ cout << x<<" "<< kT2<<" "<< res <<" "<< resNew <<  endl;
+                /*if(yNow == 0)*/ cout << x<<" "<< kT2<<" "<< res <<  endl;
             }
         }
     }

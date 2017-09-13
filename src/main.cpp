@@ -103,7 +103,7 @@ int main(int argc, char **argv)
     return 0;
     for(int i = 0; i < sol512.N; ++i) {
         const int Nnow = sol512.Nrap - 1;
-        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRap[Nnow][i] << endl;
+        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
     }
 
 
@@ -138,8 +138,8 @@ int main(int argc, char **argv)
 
     for(int i = 0; i < sol512.N; ++i) {
         const int Nnow = sol512.Nrap - 1;
-        gr512->SetPoint(i, exp(sol512.nod.xi[i]), sol512.PhiRap[Nnow][i]);
-        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRap[Nnow][i] << endl;
+        gr512->SetPoint(i, exp(sol512.nod.xi[i]), sol512.PhiRapN[Nnow](i));
+        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
     }
 
     return 0;
