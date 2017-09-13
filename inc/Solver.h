@@ -10,12 +10,45 @@
 #include <iomanip>
 
 #include <armadillo>
+#include <mpi.h>
 //using namespace arma;
 
 using namespace std;
 
 vector<double> GetWeights(int Size);
 pair<arma::mat, arma::mat> GetTransMatrices(int base, int ext, bool toTrivial);
+
+
+inline pair<int,int> GetRankSize()
+{
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    // Get the rank of the process
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    return make_pair(world_rank, world_size);
+}
+
+inline pair<long long,long long> GetStartEnd(int Min, int Max)
+{
+    int rank, nrank;
+    tie(rank,nrank) = GetRankSize();
+
+    assert(Max > Min);
+    int n = Max - Min + 1;
+
+    long long start = rank/(nrank+0.) * n;
+    long long end = (rank+1)/(nrank+0.) * n- 1;
+
+    start += Min;
+    end += Min;
+    return make_pair(start, end);
+}
+
+
+
+
 
 struct Nodes {
     Nodes(int _N, double _a, double _b) : N(_N), a(_a), b(_b) {}
@@ -206,13 +239,23 @@ struct Solver {
         matTest = mat; //set to ZEROS
         matDiag = mat; //matDiag for the z-diagonal part (set to ZEROS)
 
-        matN.resize(Nrap);
-        matNDiag.resize(Nrap);
+        matN.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
+        matNDiag.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
+
+
+        vector<arma::mat> matMPI(Nrap, arma::mat(N,N,arma::fill::zeros));
+        vector<arma::mat> matMPIDiag(Nrap, arma::mat(N,N,arma::fill::zeros));
 
         int fac = (Nint-1)/(N-1);
 
+        int start, end;
+        tie(start,end) = GetStartEnd(0, Nrap-1);
+
+        cout << "Start+end|nrap " << start <<" "<< end <<"|" << Nrap<< endl;
+
         double stepY = (rapMax - rapMin) / (Nrap-1);
-        for(int y = 0; y < Nrap; ++y) { 
+        //for(int y = 0; y < Nrap; ++y) { 
+        for(int y = start; y <= end; ++y) { 
             double rap = rapMin + stepY * y;
 
             arma::mat mTemp(Nint,Nint,arma::fill::zeros);
@@ -267,8 +310,10 @@ struct Solver {
             //cout << redMat << endl;
             //cout << extMat << endl;
 
-            matN[y]     = redMat * mTemp * extMat;
-            matNDiag[y] = redMat * mDiagTemp * extMat;
+            //matN[y]     = redMat * mTemp * extMat;
+            //matNDiag[y] = redMat * mDiagTemp * extMat;
+            matMPI[y]     = redMat * mTemp * extMat;
+            matMPIDiag[y] = redMat * mDiagTemp * extMat;
 
             /*
             for(int i = 0; i < Nint; ++i)  //loop over L
@@ -286,17 +331,33 @@ struct Solver {
 
         }
 
+        //Merge things together
+
+        for(int y = 0; y < Nrap; ++y) { 
+          MPI_Allreduce(matMPI[y].memptr(), matN[y].memptr(), N*N, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+          MPI_Allreduce(matMPIDiag[y].memptr(), matNDiag[y].memptr(), N*N, MPI_DOUBLE, MPI_SUM,MPI_COMM_WORLD);
+        }
+
+
+        cout << "All right " << endl;
+
+        //exit(0);
 
         /*
-        for(int k = 0; k < 4; ++k) {
-            const double stepY = (rapMax - rapMin) / (Nrap-1);
-            for(int i = 0; i < N; ++i)
-            for(int j = 0; j < N; ++j) {
-                cout <<"Kernel "<<k<<" : "<< i <<" "<< j <<" "<<setprecision(10)<< mat[k][i][j] <<" "<< matDiag[k][i][j]<<" "<< stepY<< endl;
+        if(start == 0) {
+            for(int y = 0; y < Nrap; ++y) {
+                const double stepY = (rapMax - rapMin) / (Nrap-1);
+                for(int i = 0; i < N; ++i)
+                for(int j = 0; j < N; ++j) {
+                    cout <<"Kernel "<<y<<" : "<< i <<" "<< j <<" "<<setprecision(10)<< matN[y](i,j) <<" "<< matNDiag[y](i,j)<<" "<< stepY<< endl;
+                    //cout <<"Kernel "<<y<<" : "<< i <<" "<< j <<" "<<setprecision(10)<< matMPI[y](i,j) <<" "<< matMPIDiag[y](i,j)<<" "<< stepY<< endl;
+                }
             }
         }
+        MPI_Barrier(MPI_COMM_WORLD);
         exit(0);
         */
+
 
 
 

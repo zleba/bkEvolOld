@@ -6,7 +6,7 @@
 
 map<double, TGraph*> ReadFile(const char *fName);
 
-int main()
+int main(int argc, char **argv)
 {
 
     //GetWeights(33);
@@ -60,7 +60,17 @@ int main()
     return 0;
     */
 
+    int provided;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    assert(MPI_THREAD_FUNNELED == provided);
 
+    // Get the name of the processor
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
+    int name_len;
+    MPI_Get_processor_name(processor_name, &name_len);
+    // Print off a hello world message
+    cout << "Processors " << processor_name << endl;
+    
 
 
 
@@ -85,7 +95,10 @@ int main()
     sol512.EvolveNew();
     //sol512.Evolve();
 
-    sol512.PrintBaseGrid();
+    if(GetRankSize().first == 0)
+        sol512.PrintBaseGrid();
+    //MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Finalize();
     //sol512.PrintGrid();
     return 0;
     for(int i = 0; i < sol512.N; ++i) {
