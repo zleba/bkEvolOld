@@ -317,7 +317,7 @@ struct Solver {
             //cout << redMat << endl;
             //cout << extMat << endl;
 
-            matN.slice(y)     =  redMat * mTemp * extMat;
+            matN.slice(y)     = stepY * redMat * mTemp * extMat;
             matNDiag.slice(y) = redMat * mDiagTemp * extMat;
 
 
@@ -345,12 +345,19 @@ struct Solver {
         MPI_Allreduce(MPI_IN_PLACE, matNDiag.memptr(), matNDiag.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 
         for(int y = start; y <= end; ++y) { 
-            matNInv.slice(y) = inv(arma::mat(N,N,arma::fill::eye) - 0.5*stepY*matN.slice(0) -matNDiag.slice(y));
+            matNInv.slice(y) = inv(arma::mat(N,N,arma::fill::eye) - 0.5*matN.slice(0) -matNDiag.slice(y));
         }
         MPI_Allreduce(MPI_IN_PLACE, matNInv.memptr(), matNInv.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+        cout << "Reduce done" << endl;
 
-        //MPI_Finalize();
-        //exit(0);
+
+        matN.save("ahoj.hdf5", arma::hdf5_binary);
+
+
+        
+
+        MPI_Finalize();
+        exit(0);
         //for(int y = 0; y < Nrap; ++y) { 
           //MPI_Allreduce(MPI_IN_PLACE, matN.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
           //MPI_Allreduce(MPI_IN_PLACE, matNDiag.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
@@ -363,7 +370,6 @@ struct Solver {
             MPI_Bcast(matNDiag[y].memptr(), N*N, MPI_DOUBLE, rank, MPI_COMM_WORLD);
         }
         */
-        cout << "Reduce done" << endl;
 
         //exit(0);
 
@@ -507,7 +513,8 @@ struct Solver {
 
 
             //Whole right hand side
-            yTemp = stepY * yTemp + Phi0N[y];
+            //yTemp = stepY * yTemp + Phi0N[y];
+            yTemp += Phi0N[y];
             
             if(start == 1)
                 cout <<"Rap point " << y << endl;
