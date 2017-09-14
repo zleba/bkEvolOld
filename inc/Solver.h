@@ -8,6 +8,7 @@
 #include <cassert>
 #include <algorithm>
 #include <iomanip>
+#include <string>
 
 #include <armadillo>
 #include <mpi.h>
@@ -129,7 +130,7 @@ struct Solver {
     const double eps = 1e-7;
     const int Nint; // kT nodes in Nintegral
     const int N;// = 32*16 + 1; //must be 2*n+1
-    const int Nrap = 16*129;
+    const int Nrap = 8*129;
     const bool toTrivial = true;
 
     const double Lmin= log(1e-2), Lmax = log(1e6);
@@ -368,6 +369,18 @@ struct Solver {
         exit(0);
         */
     }
+
+    void SaveEvolKernels(string file) {
+        matN.save(file+"_base.h5", arma::hdf5_binary);
+        matNDiag.save(file+"_diag.h5", arma::hdf5_binary);
+        matNInv.save(file+"_inv.h5", arma::hdf5_binary);
+    }
+    void LoadEvolKernels(string file) {
+        matN.load(file+"_base.h5", arma::hdf5_binary);
+        matNDiag.load(file+"_diag.h5", arma::hdf5_binary);
+        matNInv.load(file+"_inv.h5", arma::hdf5_binary);
+    }
+
 
 
     arma::vec GetLinSolution(const arma::mat &Mat, const arma::vec &y) {

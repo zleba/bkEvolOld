@@ -90,13 +90,20 @@ int main(int argc, char **argv)
         return kT2 * exp(-kT2);// * pow(max(0., 0.4-x), 2);
     });
     cout << "Weights calculated " << endl;
-    sol512.InitMat();
+    //sol512.InitMat();
+
+    //sol512.SaveEvolKernels("data/kernel");
+    sol512.LoadEvolKernels("data/kernel");
+    //MPI_Finalize();
+    //return 0;
+
     cout << "Matrix initialised" << endl;
     sol512.EvolveNew();
     //sol512.Evolve();
 
-    if(GetRankSize().first == 0)
-        sol512.PrintBaseGrid();
+    cout << "Done " << endl;
+    //if(GetRankSize().first == 0)
+        //sol512.PrintBaseGrid();
     //MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     //sol512.PrintGrid();
