@@ -11,7 +11,9 @@
 
 #include <armadillo>
 #include <mpi.h>
-//using namespace arma;
+
+#include "gpuBooster.h"
+
 
 using namespace std;
 
@@ -30,40 +32,13 @@ inline pair<int,int> GetRankSize()
     return make_pair(world_rank, world_size);
 }
 
+
 inline pair<long long,long long> GetStartEnd(long long Min, long long Max)
 {
     int rank, nrank;
     tie(rank,nrank) = GetRankSize();
-
-    if(Max < Min) return make_pair(Min, Max);
-
-    long long n = Max - Min + 1;
-
-    //long long start = rank/(nrank+0.) * n;
-    //long long end = (rank+1)/(nrank+0.) * n- 1;
-
-    long long start, end;
-
-    if(nrank <= n) {
-        start =  (rank*n)   /nrank;
-        end   = ((rank+1)*n)/nrank - 1;
-    }
-    else {
-        if(rank < n)
-            start = end = rank;
-        else {
-            start = 0;
-            end = -1;
-        }
-
-    }
-    start += Min;
-    end += Min;
-
-    return make_pair(start, end);
+    return GetStartEnd(nrank, rank, Min, Max);
 }
-
-
 
 
 
@@ -351,13 +326,11 @@ struct Solver {
         cout << "Reduce done" << endl;
 
 
-        matN.save("ahoj.hdf5", arma::hdf5_binary);
+        //matN.save("ahoj.hdf5", arma::hdf5_binary);
+        //MPI_Finalize();
+        //exit(0);
 
 
-        
-
-        MPI_Finalize();
-        exit(0);
         //for(int y = 0; y < Nrap; ++y) { 
           //MPI_Allreduce(MPI_IN_PLACE, matN.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
           //MPI_Allreduce(MPI_IN_PLACE, matNDiag.slice(y).memptr(),N*N,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
@@ -478,6 +451,10 @@ struct Solver {
     void EvolveNew() {
         const double stepY = (rapMax - rapMin) / (Nrap-1);
 
+        gpuBooster gpu;
+        bool doGPU = true;
+        if(doGPU) gpu.Init(matN);
+
         int start = 0;
 
         //Classical approach
@@ -499,15 +476,41 @@ struct Solver {
             //Starting point of evol with 0.5 (Trapezius)
 
             arma::vec yTemp(N, arma::fill::zeros);
+            arma::vec myVec(N, arma::fill::zeros);
 
-            int start, end;
-            tie(start,end) = GetStartEnd(1, y-1); //from 1 to y-1
-            //cout << "Start+end|nrap " << start <<" "<< end <<"|" << y-1<< endl;
-            //Remaining without mult
-            for(int d = start; d <= end; ++d)
-                yTemp += matN.slice(d) * PhiRapN[y-d];
+            //openMPI treatment
+            int start=1, end;
 
-            MPI_Allreduce(MPI_IN_PLACE, yTemp.memptr(), yTemp.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+            if(!doGPU) {
+                tie(start,end) = GetStartEnd(1, y-1); //from 1 to y-1
+                //cout << "Start+end|nrap " << start <<" "<< end <<"|" << y-1<< endl;
+                //Remaining without mult
+                for(int d = start; d <= end; ++d)
+                    yTemp += matN.slice(d) * PhiRapN[y-d];
+
+                MPI_Allreduce(MPI_IN_PLACE, yTemp.memptr(), yTemp.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+            }
+            else {
+                if(y > 1) {
+                    gpu.Convolute(y);
+                    gpu.GetResult(y, yTemp);
+                }
+
+                /*
+                cout << "Radek start "<<y << endl;
+                //cout << myVec << yTemp << endl;
+                for(int i = 0; i < myVec.n_elem; ++i)
+                    cout << i <<" " << myVec(i) <<" "<< yTemp(i) << endl;
+
+                cout << "Radek end " <<y<< endl;
+                if(y > 2) exit(0);
+                */
+            }
+
+
+
+
+
 
             yTemp += 0.5 * matN.slice(y) * PhiRapN[0];
 
@@ -536,6 +539,8 @@ struct Solver {
             //PhiRap[y] = GetRegSolution(matEq, yTemp, Pred);
             //PhiRapN[y] = GetLinSolution(matEq, yTemp);
             PhiRapN[y] = matNInv.slice(y) * yTemp;
+
+            if(doGPU) gpu.SetPhi(y, PhiRapN[y]);
 
             //PhiRapN[y] =  IterSolution(matEq, double factor, const arma::vec &y);
 
