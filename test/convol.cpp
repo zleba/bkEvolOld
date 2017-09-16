@@ -46,12 +46,12 @@ vector<double> LoadData(string fname)
         ++nPoints;
         if(x <= 0.01) {++nSmallx;  }
         Q2vals.push_back(Q2);
-        cout << "Ahoj " << Q2 <<" "<< x <<" "<< Sigma <<" : " << stat <<" "<< sqrt(err2)<< endl;
+        //cout << "Ahoj " << Q2 <<" "<< x <<" "<< Sigma <<" : " << stat <<" "<< sqrt(err2)<< endl;
     }
     cout << nPoints << " "<< nSmallx << endl;
-    for(auto q2 : Q2vals) {
-        cout << q2 << endl;
-    }
+    //for(auto q2 : Q2vals) {
+        //cout << q2 << endl;
+    //}
     sort(Q2vals.begin(), Q2vals.end());
     auto last = unique(Q2vals.begin(), Q2vals.end());
     Q2vals.erase(last, Q2vals.end()); 
@@ -292,7 +292,7 @@ vector<double> GetWeights(int Size)
         //cout << i <<" "<<setprecision(17)<< wgt[i] << endl;
 }
 
-void CalculateGrid(string fname)
+void CalculateGrid(string fname, int qid)
 {
     const int Nrap = 1024;
     const int N = 512+1;
@@ -302,10 +302,13 @@ void CalculateGrid(string fname)
 
     vector<double> Q2data =  LoadData(fname);
     int nQ2 = Q2data.size();
-    cout <<"nQ2 is " <<  nQ2 << endl;
+    cout <<"Calculating " << qid <<" from "<< nQ2 << endl;
+    assert(qid < nQ2);
 
-    arma::cube conFT(nQ2,N, Nrap, arma::fill::zeros);
-    arma::cube conFL(nQ2,N, Nrap, arma::fill::zeros);
+    //arma::cube conFT(nQ2,N, Nrap, arma::fill::zeros);
+    //arma::cube conFL(nQ2,N, Nrap, arma::fill::zeros);
+    arma::mat conFT(N, Nrap, arma::fill::zeros);
+    arma::mat conFL(N, Nrap, arma::fill::zeros);
 
     Integrator quad;
     quad.Init();
@@ -315,7 +318,7 @@ void CalculateGrid(string fname)
     const double eL2 = 2* 1/3.*1/3. + 2/3.*2/3.;
     const double eC2 = 2/3.*2/3.;
 
-    for(int qid = 5; qid < 6; ++qid) {
+    //for(int qid = 5; qid < 6; ++qid) {
         double Q2 = Q2data[qid];
         #pragma omp parallel for
         for(int y = 0; y < Nrap; ++y) {
@@ -323,17 +326,19 @@ void CalculateGrid(string fname)
             for(int i = 0; i < N; ++i) {
                 double p2 = exp(Lmin + (Lmax-Lmin)*i/(N-1.));
 
-                auto resL =  quad.GetIntegral(5, 5, z, Q2, p2, mL2, eL2);
-                auto resC =  quad.GetIntegral(5, 5, z, Q2, p2, mC2, eC2);
+                auto resL =  quad.GetIntegral(8, 7, z, Q2, p2, mL2, eL2);
+                auto resC =  quad.GetIntegral(8, 7, z, Q2, p2, mC2, eC2);
 
-                conFT(qid, i, y) = resL.first + resC.first;
-                conFL(qid, i, y) = resL.second + resC.second;
+                conFT( i, y) = resL.first + resC.first;
+                conFL( i, y) = resL.second + resC.second;
                 //cout << fixed<<setprecision(5) << res.first << " " ;
             }
             cout <<"Z is " <<  z << endl;
         }
-    }
+    //}
 
+    conFT.save(string("convFT_")+to_string(qid)+".h5", arma::hdf5_binary);
+    conFL.save(string("convFT_")+to_string(qid)+".h5", arma::hdf5_binary);
 }
 
 
@@ -342,12 +347,14 @@ void CalculateGrid(string fname)
 
 
 
-int main()
+int main(int argc, char **argv)
 {
     //LoadData("heraTables/HERA1+2_NCep_920.dat");
     //LoadData("heraTables/HERA1+2_NCem.dat");
     //return 0;
-    CalculateGrid("heraTables/HERA1+2_NCep_920.dat");
+    assert(argc == 2);
+    int qid = stoi(argv[1]);
+    CalculateGrid("/afs/desy.de/user/z/zlebcr/h1/TMD/Krakow/bkEvol/test/heraTables/HERA1+2_NCep_920.dat", qid);
 
     return 0;
 
