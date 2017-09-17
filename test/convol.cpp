@@ -337,8 +337,11 @@ void CalculateGrid(string fname, int qid)
         }
     //}
 
-    conFT.save(string("convFT_")+to_string(qid)+".h5", arma::hdf5_binary);
-    conFL.save(string("convFT_")+to_string(qid)+".h5", arma::hdf5_binary);
+    //string address = "/nfs/dust/cms/user/zlebcr/Krakow/convMat/";
+    string address = "";
+
+    conFT.save(address+"convFT_"+to_string(qid)+".h5", arma::hdf5_binary);
+    conFL.save(address+"convFL_"+to_string(qid)+".h5", arma::hdf5_binary);
 }
 
 
