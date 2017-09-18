@@ -94,16 +94,19 @@ int main(int argc, char **argv)
 
     //sol512.SaveEvolKernels("data/kernel");
     sol512.LoadEvolKernels("data/kernel");
+    sol512.LoadConvKernels("data/kernel");
     //MPI_Finalize();
     //return 0;
 
     cout << "Matrix initialised" << endl;
     sol512.EvolveNew();
-    //sol512.Evolve();
+    sol512.CalcF2L();
 
     cout << "Done " << endl;
-    //if(GetRankSize().first == 0)
+    if(GetRankSize().first == 0) {
         //sol512.PrintBaseGrid();
+        sol512.PrintReduce();
+    }
     //MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     //sol512.PrintGrid();

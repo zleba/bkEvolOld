@@ -130,7 +130,7 @@ struct Solver {
     const double eps = 1e-7;
     const int Nint; // kT nodes in Nintegral
     const int N;// = 32*16 + 1; //must be 2*n+1
-    const int Nrap = 1042;
+    const int Nrap = 1024;
     const bool toTrivial = true;
 
     const double Lmin= log(1e-2), Lmax = log(1e6);
@@ -336,12 +336,6 @@ struct Solver {
         cout << "Reduce done" << endl;
 
 
-        if(start == 0) {
-            assert(convF2.load("data/convFT.h5", arma::hdf5_binary));
-            assert(convFL.load("data/convFL.h5", arma::hdf5_binary));
-        }
-        MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 
         //matN.save("ahoj.hdf5", arma::hdf5_binary);
@@ -397,6 +391,16 @@ struct Solver {
         matNDiag.load(file+"_diag.h5", arma::hdf5_binary);
         matNInv.load(file+"_inv.h5", arma::hdf5_binary);
     }
+
+
+    void LoadConvKernels(string file) {
+        assert(convF2.load("data/convF2.h5", arma::hdf5_binary));
+        assert(convFL.load("data/convFL.h5", arma::hdf5_binary));
+
+        //MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        //MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
+
 
 
 
@@ -588,16 +592,20 @@ struct Solver {
 
     }
 
-    void CalcF2() {
+    void CalcF2L() {
+        F2rap.resize(Nrap);
+        FLrap.resize(Nrap);
         F2rap[0] = arma::vec(convF2.n_rows, arma::fill::zeros);
+        FLrap[0] = arma::vec(convFL.n_rows, arma::fill::zeros);
         for(int y = 1; y < Nrap; ++y) {
             //kT spectrum for particular bin y
             //Starting point of evol with 0.5 (Trapezius)
             F2rap[y] = 0.5*(convF2.slice(y) * PhiRapN[0] + convF2.slice(0) * PhiRapN[y]);
-
+            FLrap[y] = 0.5*(convFL.slice(y) * PhiRapN[0] + convFL.slice(0) * PhiRapN[y]);
             //Remaining without mult by 0.5, convF2 should contain deltaRap factor
             for(int d = 1; d < y; ++d) {
                 F2rap[y] += convF2.slice(d) * PhiRapN[y-d];
+                FLrap[y] += convFL.slice(d) * PhiRapN[y-d];
             }
         }
     }
@@ -825,5 +833,34 @@ struct Solver {
             }
         }
     }
+
+
+    void PrintReduce() {
+        const double stepY = (rapMax - rapMin) / (Nrap-1);
+
+        vector<double> q2Arr={0.15, 0.2, 0.25, 0.35, 0.4, 0.5, 0.65, 0.85, 1.2, 1.5, 2, 2.7, 3.5, 4.5,
+        6.5, 8.5, 10, 12, 15, 18, 22, 27, 35, 45, 60, 70, 90, 120, 150, 200, 250,
+        300, 400, 500, 650, 800, 1000, 1200, 1500, 2000, 3000, 5000, 8000, 12000, 20000, 30000};
+
+        double sBeam = pow(318.12,2);
+
+        for(int rapID = 0; rapID < Nrap; ++rapID) {
+            double rap = rapMin + rapID*stepY;
+            double x = exp(-rap);
+
+            for(int i = 0; i < 46; ++i) {
+                double Q2 = q2Arr[i];
+                double y = Q2/(x*sBeam);
+        
+                double yPlus = 1+(1-y)*(1-y);
+
+                double sRed = F2rap[rapID](i) - y*y/yPlus * FLrap[rapID](i);
+
+                cout << x << " "<< Q2 <<" "<< sRed << endl;
+
+            }
+        }
+    }
+
 };
 #endif 
