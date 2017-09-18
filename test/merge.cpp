@@ -30,7 +30,7 @@ void MergeFiles(string name)
 
 int main()
 {
-    MergeFiles("convFT");
+    MergeFiles("convF2");
     MergeFiles("convFL");
 
 
