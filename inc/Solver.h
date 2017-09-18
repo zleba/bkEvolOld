@@ -130,7 +130,7 @@ struct Solver {
     const double eps = 1e-7;
     const int Nint; // kT nodes in Nintegral
     const int N;// = 32*16 + 1; //must be 2*n+1
-    const int Nrap = 8*129;
+    const int Nrap = 1042;
     const bool toTrivial = true;
 
     const double Lmin= log(1e-2), Lmax = log(1e6);
@@ -152,6 +152,10 @@ struct Solver {
     //vector<arma::mat> matN, matNDiag;
     arma::cube matN, matNDiag, matNInv;
     vector<arma::vec> PhiRapN, Phi0N;
+
+    arma::cube convF2, convFL;
+    vector<arma::vec> F2rap, FLrap;
+
 
     arma::mat extMat, redMat;
 
@@ -225,6 +229,8 @@ struct Solver {
         //matN.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
         //matNDiag.resize(Nrap, arma::mat(N,N,arma::fill::zeros));
 
+
+
         matN.zeros( N, N, Nrap);
         matNDiag.zeros( N, N, Nrap);
         matNInv.zeros( N, N, Nrap);
@@ -233,6 +239,9 @@ struct Solver {
 
         int start, end;
         tie(start,end) = GetStartEnd(0, Nrap-1);
+
+
+
 
         cout << "Start+end|nrap " << start <<" "<< end <<"|" << Nrap<< endl;
 
@@ -325,6 +334,14 @@ struct Solver {
         }
         MPI_Allreduce(MPI_IN_PLACE, matNInv.memptr(), matNInv.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
         cout << "Reduce done" << endl;
+
+
+        if(start == 0) {
+            assert(convF2.load("data/convFT.h5", arma::hdf5_binary));
+            assert(convFL.load("data/convFL.h5", arma::hdf5_binary));
+        }
+        MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 
         //matN.save("ahoj.hdf5", arma::hdf5_binary);
@@ -571,6 +588,25 @@ struct Solver {
 
     }
 
+    void CalcF2() {
+        F2rap[0] = arma::vec(convF2.n_rows, arma::fill::zeros);
+        for(int y = 1; y < Nrap; ++y) {
+            //kT spectrum for particular bin y
+            //Starting point of evol with 0.5 (Trapezius)
+            F2rap[y] = 0.5*(convF2.slice(y) * PhiRapN[0] + convF2.slice(0) * PhiRapN[y]);
+
+            //Remaining without mult by 0.5, convF2 should contain deltaRap factor
+            for(int d = 1; d < y; ++d) {
+                F2rap[y] += convF2.slice(d) * PhiRapN[y-d];
+            }
+        }
+    }
+
+
+
+
+
+
 
     void DoIteration() {
         const double stepY = (rapMax - rapMin) / (Nrap-1);
@@ -593,7 +629,7 @@ struct Solver {
             }
 
             //Whole right hand side
-            yTemp = yTemp * stepY + Phi0N[y];
+            yTemp = yTemp + Phi0N[y];
 
             //Diag part (=virtual DGLAP term)
             yTemp += matNDiag.slice(y) * PhiRapN[y];
