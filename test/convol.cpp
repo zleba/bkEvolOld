@@ -107,9 +107,9 @@ vector<double> GetNodes(int n, double a, double b)
 {
     vector<double> nodes;
     for(int k = 0; k < n; ++k) {
-        double Cos = cos(k*M_PI / (n-1));
+        double Cos = cos(k*M_PI / (n-1.));
 
-        double x = (a+b)/2 + Cos*(b-a)/2;
+        double x = (a+b)/2 - Cos*(b-a)/2;
         nodes.push_back(x);
     }
     return nodes;
@@ -297,6 +297,9 @@ void CalculateGrid(string fname, int qid)
     const int Nrap = 1024;
     const int N = 512+1;
 
+    int N2id = log2(N-1);
+    assert(pow(2,N2id)+1 == N);
+
     const double Lmin= log(1e-2), Lmax = log(1e6);
     const double rapMax = log(1e6), rapMin = log(1);
 
@@ -305,9 +308,12 @@ void CalculateGrid(string fname, int qid)
     cout <<"Calculating " << qid <<" from "<< nQ2 << endl;
     assert(qid < nQ2);
 
+    const double rapStep = (rapMax-rapMin) / (Nrap-1.);
+
+
     //arma::cube conFT(nQ2,N, Nrap, arma::fill::zeros);
     //arma::cube conFL(nQ2,N, Nrap, arma::fill::zeros);
-    arma::mat conFT(N, Nrap, arma::fill::zeros);
+    arma::mat conF2(N, Nrap, arma::fill::zeros);
     arma::mat conFL(N, Nrap, arma::fill::zeros);
 
     Integrator quad;
@@ -322,25 +328,32 @@ void CalculateGrid(string fname, int qid)
         double Q2 = Q2data[qid];
         #pragma omp parallel for
         for(int y = 0; y < Nrap; ++y) {
-            double z = 1./exp(rapMin + (rapMax-rapMin) * y/(Nrap-1.));
+            double z = exp(-rapMin - rapStep*y);
             for(int i = 0; i < N; ++i) {
-                double p2 = exp(Lmin + (Lmax-Lmin)*i/(N-1.));
+                //double L = (Lmin + Lmax)/2 -  cos(M_PI*i/(N-1.))*(Lmax-Lmin)/2;
+                //double p2 = exp(L);
+                double p = quad.kNodes[N2id][i];
+                //cout << i <<" "<< p << endl;
 
-                auto resL =  quad.GetIntegral(8, 7, z, Q2, p2, mL2, eL2);
-                auto resC =  quad.GetIntegral(8, 7, z, Q2, p2, mC2, eC2);
+                auto resL =  quad.GetIntegral(8, 7, z, Q2, p*p, mL2, eL2);
+                auto resC =  quad.GetIntegral(8, 7, z, Q2, p*p, mC2, eC2);
 
-                conFT( i, y) = resL.first + resC.first;
+                conF2( i, y) = (resL.first + resC.first) + (resL.second + resC.second);
                 conFL( i, y) = resL.second + resC.second;
                 //cout << fixed<<setprecision(5) << res.first << " " ;
+
+                //Applying weights for intregration over dz/z and dp2/p2
+                conF2(i, y) *= rapStep * quad.kWeights[N2id][i] * (Lmax-Lmin)/2.;
+                conFL(i, y) *= rapStep * quad.kWeights[N2id][i] * (Lmax-Lmin)/2.;
             }
-            cout <<"Z is " <<  z << endl;
+            //cout <<"Z is " <<  z << endl;
         }
     //}
 
     //string address = "/nfs/dust/cms/user/zlebcr/Krakow/convMat/";
     string address = "";
 
-    conFT.save(address+"convFT_"+to_string(qid)+".h5", arma::hdf5_binary);
+    conF2.save(address+"convF2_"+to_string(qid)+".h5", arma::hdf5_binary);
     conFL.save(address+"convFL_"+to_string(qid)+".h5", arma::hdf5_binary);
 }
 
