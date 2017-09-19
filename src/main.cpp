@@ -100,12 +100,12 @@ int main(int argc, char **argv)
 
     cout << "Matrix initialised" << endl;
     sol512.EvolveNew();
-    sol512.CalcF2L();
+    //sol512.CalcF2L();
 
     cout << "Done " << endl;
     if(GetRankSize().first == 0) {
-        //sol512.PrintBaseGrid();
-        sol512.PrintReduce();
+        sol512.PrintBaseGrid();
+        //sol512.PrintReduce();
     }
     //MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

@@ -17,6 +17,7 @@ typedef double  Double;
 
 struct Unit {
     size_t n;
+    size_t nr, nc;//nrows, ncols
     int devId;
     cublasHandle_t handle;
     Double *d_Cube;
@@ -35,15 +36,19 @@ class gpuBooster {
 
         void Init(const arma::cube &cube);
         void Convolute(int y);
+
+        void InitAll(const arma::cube &cubeEvol, const arma::cube &cubeF2, const arma::cube &cubeFL);
+        void ConvoluteAll(int y);
+
         void GetResult(int y, arma::vec &res) {
 
-            vector<arma::vec> temp(devs.size(), arma::vec(devs[0].n));
+            vector<arma::vec> temp(devs.size(), arma::vec(devs[0].nc));
 
             #pragma omp parallel
             {
                 int i =omp_get_thread_num();
                 assert(i < 4);
-                //arma::vec temp(devs[i].n);
+                //arma::vec temp(devs[i].nc);
                 devs[i].GetResult(y, temp[i]);
 
             }

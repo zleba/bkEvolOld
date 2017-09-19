@@ -487,7 +487,7 @@ struct Solver {
 
         gpuBooster gpu;
         bool doGPU = true;
-        if(doGPU) gpu.Init(matN);
+        if(doGPU) gpu.InitAll(matN, convF2, convFL);
 
         int start = 0;
 
@@ -526,7 +526,7 @@ struct Solver {
             }
             else {
                 if(y > 1) {
-                    gpu.Convolute(y);
+                    gpu.ConvoluteAll(y);
                     gpu.GetResult(y, yTemp);
                 }
 
