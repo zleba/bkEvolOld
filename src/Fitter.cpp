@@ -1,6 +1,11 @@
 #include "Fitter.h"
 #include <cmath>
 
+#include "Math/Minimizer.h"
+#include "Math/Factory.h"
+#include "Math/Functor.h"
+
+
 vector<dataPoint> Fitter::LoadData(string fname)
 {
     vector<dataPoint> points;
@@ -33,7 +38,7 @@ vector<dataPoint> Fitter::LoadData(string fname)
         for(int i = 0; i < 4; ++i)
             err2 += pow(delta[i],2);
 
-        p.err = sqrt(err2);
+        p.err = sqrt(err2); //in %!
         points.push_back(p);
         ++q2vals[p.Q2];
     }
@@ -56,13 +61,67 @@ void Fitter::Init()
     data = LoadData("test/heraTables/HERA1+2_NCep_920.dat");
 
     //Load evoluton and convolution matrices
+    //sol512.InitMat();
+    solver.LoadEvolKernels("data/kernel");
+
+    solver.LoadConvKernels("data/kernel");
+
+    //MPI_Finalize();
+    //return 0;
 
 
+    /*
+    ROOT::Math::Minimizer* minimiser =
+        ROOT::Math::Factory::CreateMinimizer("Minuit2", "Migrad");
+    assert(minimiser);
+    minimiser->SetMaxFunctionCalls(100000); // for Minuit/Minuit2
+    minimiser->SetMaxIterations(10000);  // for GSL
+    minimiser->SetTolerance(0.001);
+    minimiser->SetPrintLevel(1);
 
+    const int nPar = 2;
+    ROOT::Math::Functor funct(*this, nPar);
+    minimiser->SetFunction(funct);
+
+    minimiser->SetVariable(0, "normalization",1,0.5);
+    minimiser->SetVariable(1, "slope",1,0.5);
+    minimiser->SetVariableLimits(0,0.0,5);
+    minimiser->SetVariableLimits(1,0.0,10);
+    */
+
+    double p[] = {0.001,2};
+    (*this)(p);
+    //p[1] = 2;
+    //(*this)(p);
+    //p[1] = 1;
+    //(*this)(p);
 }
+
+
+double Fitter::operator()(const double *p)
+{
+    cout << "Matrix initialised" << endl;
+
+    solver.InitF([=](double x, double kT2) {
+        //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
+        //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
+        return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
+    });
+    solver.EvolveNew();
+    AddTheory(solver.F2rap, solver.FLrap);
+    int nDF;
+    double chi2 = getChi2(nDF);
+
+    cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
+
+    return chi2;
+}
+
+
 void Fitter::DoFit()
 {
     //Do fitting
+
 
 
 }
@@ -98,13 +157,16 @@ void Fitter::AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
     }
 }
 
-double Fitter::getChi2()
+double Fitter::getChi2(int &nDF)
 {
     double chi2 = 0;
+    nDF = 0;
     for(auto &p : data) {
         if(p.x > 0.01 || p.Q2 < 4) continue;
 
-        chi2 += pow((p.sigma - p.theor) / p.err, 2);
+        chi2 += pow((p.sigma - p.theor) / (p.err*p.sigma*1e-2), 2);
+        cout << p.Q2 <<" "<< p.x <<" : "<< p.sigma <<" "<< p.theor << endl;
+        ++nDF;
     }
     return chi2;
 }

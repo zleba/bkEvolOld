@@ -3,6 +3,7 @@
 #include "TCanvas.h"
 #include "TLegend.h"
 #include "TAxis.h"
+#include "Fitter.h"
 
 map<double, TGraph*> ReadFile(const char *fName);
 
@@ -78,7 +79,10 @@ int main(int argc, char **argv)
     auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
     //return 0;
 
+    Fitter fitter;
+    fitter.Init();
 
+    return 0;
 
     double yNew = log(1e8/1e2);
     int Ny = 280;
@@ -104,8 +108,8 @@ int main(int argc, char **argv)
 
     cout << "Done " << endl;
     if(GetRankSize().first == 0) {
-        sol512.PrintBaseGrid();
-        //sol512.PrintReduce();
+        //sol512.PrintBaseGrid();
+        sol512.PrintReduce();
     }
     //MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

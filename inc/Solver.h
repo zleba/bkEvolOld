@@ -155,9 +155,14 @@ struct Solver {
 
     arma::cube convF2, convFL;
     vector<arma::vec> F2rap, FLrap;
+    
+    //vector<arma::vec> &GetF2() {return F2rap;}
+    //vector<arma::vec> &GetFL() {return FLrap;}
 
 
     arma::mat extMat, redMat;
+
+    gpuBooster gpu;
 
     pair<double,double> GetKerPar(double l, double lp);
     double Delta(double z, double k2, double q2);
@@ -485,9 +490,12 @@ struct Solver {
     void EvolveNew() {
         const double stepY = (rapMax - rapMin) / (Nrap-1);
 
-        gpuBooster gpu;
+        F2rap.resize(Nrap);
+        FLrap.resize(Nrap);
+
         bool doGPU = true;
-        if(doGPU) gpu.InitAll(matN, convF2, convFL);
+        if(doGPU & !gpu.isInited) gpu.InitAll(matN, convF2, convFL);
+        if(doGPU) gpu.ResetVector();
 
         int start = 0;
 
@@ -499,6 +507,9 @@ struct Solver {
             }
             else
                 PhiRapN[0] = GetLinSolution(MatEq, Phi0N[0]);
+
+            F2rap[0].zeros(convF2.n_rows);
+            FLrap[0].zeros(convFL.n_rows);
         }
         else { //Dummy start for DGLAP
             for(int y = 0; y <= start; ++y)
@@ -511,6 +522,9 @@ struct Solver {
 
             arma::vec yTemp(N, arma::fill::zeros);
             arma::vec myVec(N, arma::fill::zeros);
+
+            F2rap[y] = 0.5*convF2.slice(y) * PhiRapN[0];// + convF2.slice(0) * PhiRapN[y]);
+            FLrap[y] = 0.5*convFL.slice(y) * PhiRapN[0];// + convFL.slice(0) * PhiRapN[y]);
 
             //openMPI treatment
             int start=1, end;
@@ -527,7 +541,9 @@ struct Solver {
             else {
                 if(y > 1) {
                     gpu.ConvoluteAll(y);
-                    gpu.GetResult(y, yTemp);
+                    //gpu.GetResult(y, yTemp);
+                    gpu.GetResults(y, yTemp, F2rap[y], FLrap[y]);
+
                 }
 
                 /*
@@ -553,7 +569,7 @@ struct Solver {
             //yTemp = stepY * yTemp + Phi0N[y];
             yTemp += Phi0N[y];
             
-            if(start == 1)
+            if(y % 100 == 0)
                 cout <<"Rap point " << y << endl;
             /*
             auto matNow = mat[0]; //Adding diagonal DGLAP term
@@ -573,6 +589,9 @@ struct Solver {
             //PhiRap[y] = GetRegSolution(matEq, yTemp, Pred);
             //PhiRapN[y] = GetLinSolution(matEq, yTemp);
             PhiRapN[y] = matNInv.slice(y) * yTemp;
+
+            F2rap[y] += 0.5*convF2.slice(0) * PhiRapN[y];
+            FLrap[y] += 0.5*convFL.slice(0) * PhiRapN[y];
 
             if(doGPU) gpu.SetPhi(y, PhiRapN[y]);
 
@@ -684,22 +703,6 @@ struct Solver {
     void InitF(function<double(double, double)> fun) {
         const double stepY = (rapMax-rapMin) / (Nrap-1);
         
-        /*
-        //Old version
-        Phi0.resize(Nrap);
-        for(int y = 0; y < Nrap; ++y) {
-            Phi0[y].resize(N);
-            double x = exp(-y*stepY);
-            for(int i = 0; i < N; ++i) {
-                double kT2 = exp(nodBase.xi[i]);
-                Phi0[y][i] = fun(x, kT2);
-            }
-        }
-        PhiRap.resize(Nrap);
-        for(auto &ph : PhiRap)
-            ph.resize(N, 0.);
-        */
-
         //New version
         Phi0N.resize(Nrap);
         for(int y = 0; y < Nrap; ++y) {
@@ -844,6 +847,9 @@ struct Solver {
 
         double sBeam = pow(318.12,2);
 
+        assert(F2rap.size() == matN.n_slices);
+        assert(FLrap.size() == matN.n_slices);
+
         for(int rapID = 0; rapID < Nrap; ++rapID) {
             double rap = rapMin + rapID*stepY;
             double x = exp(-rap);
@@ -854,9 +860,13 @@ struct Solver {
         
                 double yPlus = 1+(1-y)*(1-y);
 
+                //cout << " rapID " << rapID << " " << F2rap[rapID].n_rows << endl;
+                //assert(F2rap[rapID].n_rows == 46);
+                //assert(FLrap[rapID].n_rows == 46);
                 double sRed = F2rap[rapID](i) - y*y/yPlus * FLrap[rapID](i);
 
-                cout << x << " "<< Q2 <<" "<< sRed << endl;
+                //cout << x << " "<< Q2 <<" "<< sRed << endl;
+                cout << x << " "<< Q2 <<" "<< F2rap[rapID](i) <<" "<< FLrap[rapID](i) << endl;
 
             }
         }

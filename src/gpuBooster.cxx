@@ -151,7 +151,7 @@ void gpuBooster::InitAll(const arma::cube &cubeEvol, const arma::cube &cubeF2, c
 {
     int nDev;
     assert(cudaGetDeviceCount(&nDev) == 0);
-    nDev = 1;
+    //nDev = 1;
     assert(nDev > 0);
     devs.resize(nDev);
 
@@ -179,6 +179,7 @@ void gpuBooster::InitAll(const arma::cube &cubeEvol, const arma::cube &cubeF2, c
         cout << "End of copy" << endl;
         devs[i].nr = cubeEvol.n_rows + cubeF2.n_rows + cubeF2.n_rows;
         devs[i].nc = cubeEvol.n_cols;
+        devs[i].ns = cubeEvol.n_slices;
 
         //Init sol in GPU to zero
         size_t sizeN = size_t(devs[i].nr) * size_t(cubeEvol.n_slices);
@@ -189,14 +190,29 @@ void gpuBooster::InitAll(const arma::cube &cubeEvol, const arma::cube &cubeF2, c
             exit(1);
         }
         //cout << "Initialized GPU mem from " << devs[i].d_phi << " "<< cube.n_rows * cube.n_slices << endl;
-        const Double zero = 0, one = 1;
+        //const Double zero = 0, one = 1;
+        //assert(cublasDscal(devs[i].handle, sizeN, &zero, devs[i].d_phi, 1) == 0);
+    }
+    isInited = true;
+}
+
+void gpuBooster::ResetVector()
+{
+    size_t sizeN = size_t(devs[0].nr) * size_t(devs[0].ns);
+    size_t size = sizeN * sizeof(Double);
+    const Double zero = 0;
+
+    omp_set_dynamic(0);     // Explicitly disable dynamic teams
+    omp_set_num_threads(devs.size());
+
+    //Init memory in devices
+    #pragma omp parallel
+    //for(int i = 0; i < nDev; ++i)
+    {
+        int i =omp_get_thread_num();
         assert(cublasDscal(devs[i].handle, sizeN, &zero, devs[i].d_phi, 1) == 0);
     }
 }
-
-
-
-
 
 void gpuBooster::Convolute(int y) {
 
@@ -262,10 +278,23 @@ void Unit::GetResult(int y, arma::vec &res) {
     //cout << "Device id " << devId << endl;
     assert(cudaSetDevice(devId+0) == 0);
     //cout << "Reading GPU mem from " << d_phi <<" "<< d_phi /*+ n*y */ <<", size " << res.n_elem <<" "<<n<< endl;
+    cublasStatus_t status = cublasGetVector(nr, sizeof(Double), d_phi + nr*y, 1, res.memptr(), 1);
+    //cout << "Status read" << status << endl;
+    assert(status == CUBLAS_STATUS_SUCCESS);
+}
+
+/*
+void Unit::GetResults(int y, arma::vec &res) {
+    //cout << "Device id " << devId << endl;
+    assert(cudaSetDevice(devId+0) == 0);
     cublasStatus_t status = cublasGetVector(nc, sizeof(Double), d_phi + nr*y, 1, res.memptr(), 1);
     //cout << "Status read" << status << endl;
     assert(status == CUBLAS_STATUS_SUCCESS);
 }
+*/
+
+
+
 
 void Unit::SetPhi(int y, arma::vec &phi) {
     

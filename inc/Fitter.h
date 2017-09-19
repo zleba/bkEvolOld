@@ -4,6 +4,7 @@
 #include <vector>
 #include <armadillo>
 
+#include "Solver.h"
 
 using namespace std;
 
@@ -17,14 +18,18 @@ struct dataPoint {
 
 class Fitter {
     vector<dataPoint> data;
+    Solver solver;
 
     public:
+
+    Fitter() : solver(512+1) {}
     vector<dataPoint> LoadData(string fname);
 
     void AddTheory(vector<arma::vec> &f2, vector<arma::vec> &fl);
     void Init();
 
-    double getChi2();
+    double getChi2(int &nDF);
+    double operator()(const double *p);
 
     void DoFit();
 
