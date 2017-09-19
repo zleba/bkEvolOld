@@ -49,6 +49,49 @@ Double * CopyCube(const arma::cube &cube)
 }
 
 
+Double * CopyAll(const arma::cube &cubeEvol, const arma::cube &cubeF2, const arma::cube &cubeFL)
+{
+    Double *d_first;
+
+    auto GetSize = [](const arma::cube &cube) {
+        return size_t(cube.n_rows)*size_t(cube.n_cols)*size_t(cube.n_slices) * sizeof(*cube.begin());
+    };
+    size_t size = GetSize(cubeEvol) + GetSize(cubeF2) + GetSize(cubeFL);
+
+    size_t sliceSize = cubeEvol.slice(0).n_elem + cubeF2.slice(0).n_elem + cubeFL.slice(0).n_elem;
+    size_t rowSize = cubeEvol.n_rows + cubeF2.n_rows + cubeFL.n_rows;
+
+
+    cout << "RADEK size " << size << endl;
+    //exit(0);
+    if (cudaMalloc((void **)&d_first, size) != cudaSuccess) {
+        fprintf(stderr, "!!!! device memory allocation error (allocate A)\n");
+        exit(1);
+    }
+
+    //cublasStatus_t status = cublasSetVector(cube.n_elem, sizeof(Double), cube.memptr(), 1, d_first, 1);
+    //cudaError_t status = cudaMemcpy(d_first, cube.memptr(), size, cudaMemcpyHostToDevice);
+
+    for(int y = 0; y < cubeEvol.n_slices; ++y) 
+    for(int i = 0; i < cubeEvol.n_cols; ++i) {
+        double *base = d_first+y*sliceSize + i*rowSize;
+        assert(!cudaMemcpy(base, cubeEvol.slice(y).colptr(i),
+                   cubeEvol.n_rows*sizeof(*cubeEvol.begin()), cudaMemcpyHostToDevice));
+
+        assert(!cudaMemcpy(base + cubeEvol.n_rows, cubeF2.slice(y).colptr(i),
+                   cubeF2.n_rows*sizeof(*cubeF2.begin()), cudaMemcpyHostToDevice));
+        assert(!cudaMemcpy(base + cubeEvol.n_rows+cubeF2.n_rows, cubeFL.slice(y).colptr(i),
+                   cubeFL.n_rows*sizeof(*cubeFL.begin()), cudaMemcpyHostToDevice));
+    }
+
+    return d_first;
+}
+
+
+
+
+
+
 
 void gpuBooster::Init(const arma::cube &cube) {
     int nDev;

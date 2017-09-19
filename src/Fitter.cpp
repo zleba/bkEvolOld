@@ -1,3 +1,6 @@
+#include "Fitter.h"
+#include <cmath>
+
 vector<dataPoint> Fitter::LoadData(string fname)
 {
     vector<dataPoint> points;
@@ -8,7 +11,7 @@ vector<dataPoint> Fitter::LoadData(string fname)
 
     int nPoints = 0, nSmallx=0;
 
-    map<double> q2vals;
+    map<double, int> q2vals;
     while(1) {
         dataPoint p;
         double Q2, x, y, Sigma, stat, uncor;
@@ -26,9 +29,9 @@ vector<dataPoint> Fitter::LoadData(string fname)
         
         if(!file.good()) break;
 
-        double err2 = pow2(tot_noproc) + pow2(delta_rel) + pow2(delta_gp) + pow2(delta_had);
+        double err2 = pow(tot_noproc,2) + pow(delta_rel,2) + pow(delta_gp,2) + pow(delta_had,2);
         for(int i = 0; i < 4; ++i)
-            err2 += pow2(delta[i]);
+            err2 += pow(delta[i],2);
 
         p.err = sqrt(err2);
         points.push_back(p);
@@ -42,7 +45,7 @@ vector<dataPoint> Fitter::LoadData(string fname)
     }
 
     for(auto &p : points)
-        p.q2ID = q2vals[Q2];
+        p.q2ID = q2vals[p.Q2];
 
     return points;
 
@@ -50,7 +53,7 @@ vector<dataPoint> Fitter::LoadData(string fname)
 void Fitter::Init()
 {
     //Load data points
-    data = LoadData();
+    data = LoadData("test/heraTables/HERA1+2_NCep_920.dat");
 
     //Load evoluton and convolution matrices
 
@@ -82,9 +85,9 @@ double getValue(vector<arma::vec> &f, int Q2id, double x)
     return val;
 }
 
-void AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
+void Fitter::AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
 {
-    for(auto &p : points) {
+    for(auto &p : data) {
        double f2 = getValue(F2, p.q2ID, p.x);
        double fl = getValue(FL, p.q2ID, p.x);
 
@@ -95,10 +98,10 @@ void AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
     }
 }
 
-double getChi2()
+double Fitter::getChi2()
 {
     double chi2 = 0;
-    for(auto &p : points) {
+    for(auto &p : data) {
         if(p.x > 0.01 || p.Q2 < 4) continue;
 
         chi2 += pow((p.sigma - p.theor) / p.err, 2);

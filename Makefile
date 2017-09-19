@@ -10,14 +10,14 @@ CC=g++
 CC=mpic++
 
 CUDA=/usr/local/cuda-8.0/bin/nvcc
-CUDA=/usr/bin/nvcc
+#CUDA=/usr/bin/nvcc
 
 #iter: iterate.cpp
 	#g++ -g -O3 $(CFLAGS)  $^ $(LIBS) -lgsl -lgslcblas -fopenmp -o $@ 
 
 
-SRCS = src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp
-OBJS = obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o
+SRCS = src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp
+OBJS = obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o
 
 
 #obj/%.o: src/%.cpp inc/Solver.h inc/integration.h
@@ -30,7 +30,7 @@ iter: $(OBJS)
 	$(CC) -g  $^ $(LIBS)  -fopenmp   -Wl,-R$(armaLib) -L$(armaLib) -larmadillo -L/usr/local/cuda-8.0/targets/x86_64-linux/lib/ -lcudart  -lcublas    -o $@
 
 
-obj/%.o: src/%.cpp inc/Solver.h inc/integration.h inc/gpuBooster.h
+obj/%.o: src/%.cpp inc/Solver.h inc/integration.h inc/gpuBooster.h inc/Fitter.h
 	$(CC) -g  -fopenmp  -I$(armaInc)   -I./inc  -I/usr/local/cuda-8.0/targets/x86_64-linux/include/   -c   -o $@ $< $(CFLAGS)
 
 obj/gpuBooster.o: src/gpuBooster.cxx
