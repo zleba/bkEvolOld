@@ -29,7 +29,8 @@ class Fitter {
     void Init();
 
     double getChi2(int &nDF);
-    double operator()(const double *p);
+    double operator()(const double *p, const double *q);
+    double Eval(const double *p, const double *q);
 
     void DoFit();
 

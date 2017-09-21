@@ -150,7 +150,7 @@ arma::mat Proj(int to, int from)
 
 int main()
 {
-    auto fun = [](double x) { /*double x = acos(CosX);*/ return  1+abs(x);/*cos(4*acos(x));*/ };
+    auto fun = [](double x) { /*double x = acos(CosX);*/ return  /*1+abs(x);*/cos(4*acos(x)); };
 
 
     auto vals1 = GetVals(5, fun);
@@ -178,8 +178,6 @@ int main()
     //convert to higher
     auto matExt = coefMat2in * Proj(vals2.size(),vals1.size()) * coefMat1;
     auto matRed = coefMat1in * Proj(vals1.size(),vals2.size()) * coefMat2;
-
-
 
     for(auto a: vals1)
         cout << a << endl;

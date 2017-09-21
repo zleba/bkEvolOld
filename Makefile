@@ -27,7 +27,7 @@ OBJS = obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.
 
 
 iter: $(OBJS) 
-	$(CC) -g  $^ $(LIBS)  -fopenmp   -Wl,-R$(armaLib) -L$(armaLib) -larmadillo -L/usr/local/cuda-8.0/targets/x86_64-linux/lib/ -lcudart  -lcublas    -o $@
+	$(CC) -g  $^ $(LIBS)  -fopenmp   -Wl,-R$(armaLib) -L$(armaLib) -larmadillo -L/usr/local/cuda-8.0/targets/x86_64-linux/lib/ -lcudart  -lcublas  -lgsl -lgslcblas -lm   -o $@
 
 
 obj/%.o: src/%.cpp inc/Solver.h inc/integration.h inc/gpuBooster.h inc/Fitter.h

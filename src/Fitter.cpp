@@ -1,9 +1,15 @@
 #include "Fitter.h"
 #include <cmath>
 
+//#include "Math/GSLMinimizer.h"
 #include "Math/Minimizer.h"
 #include "Math/Factory.h"
 #include "Math/Functor.h"
+#include <gsl/gsl_multimin.h>
+
+#include "TF2.h"
+
+//Fitter *fitter;
 
 
 vector<dataPoint> Fitter::LoadData(string fname)
@@ -55,6 +61,30 @@ vector<dataPoint> Fitter::LoadData(string fname)
     return points;
 
 }
+
+
+    double
+my_f (const gsl_vector *v, void *params)
+{
+    double x[10];
+    Fitter *fit = (Fitter *)params;
+    //cout <<"RADEKsize " << v->size << endl;
+    for(int i = 0; i < v->size; ++i)
+        x[i] = gsl_vector_get(v, i);
+
+    //return pow(x-0.3, 2) + pow(y-0.5,2);
+    double *q = nullptr;
+    return fit->Eval(x, q);
+
+    //return p[2] * (x - p[0]) * (x - p[0]) +
+        //p[3] * (y - p[1]) * (y - p[1]) + p[4]; 
+}
+
+
+
+
+
+
 void Fitter::Init()
 {
     //Load data points
@@ -69,6 +99,7 @@ void Fitter::Init()
     //MPI_Finalize();
     //return 0;
 
+    //fitter = this;
 
     /*
     ROOT::Math::Minimizer* minimiser =
@@ -89,29 +120,128 @@ void Fitter::Init()
     minimiser->SetVariableLimits(1,0.0,10);
     */
 
-    double p[] = {0.001,2};
-    (*this)(p);
+
+                
+
+    //TF2 *fun = new TF2("function", *this, 0.0, 1.0, 0.001, 10);
+    //TF2 * fun = new TF2("fun",[&](double*x, double *q){int n; return getChi2(n); }, 0, 1, 0.0001, 10);
+    /*
+    TF2 * fun = new TF2("fun",this, &Fitter::Eval, 1e-10, 0.6001, 1e-10, 10, 0);
+
+    //double p1, p2;
+    //fun->GetMinimum(p1, p2);
+    double p[2] = {0.1, 1};
+    //x
+    //
+    p[0]=4.66136e-08; p[1]=0.00211218;
+    //p[0]=0.000302243;
+    //p[1]=1.79951;
+    fun->GetMinimum(p);
+    */
+
+    //double p[] = {0.001,2};
+    //(*this)(p);
     //p[1] = 2;
     //(*this)(p);
     //p[1] = 1;
     //(*this)(p);
+
+
+    const gsl_multimin_fminimizer_type *T = 
+        gsl_multimin_fminimizer_nmsimplex2;
+    gsl_multimin_fminimizer *s = NULL;
+    gsl_vector *ss, *x;
+    gsl_multimin_function minex_func;
+
+    size_t iter = 0;
+    int status;
+    double size;
+
+    /* Starting point */
+
+    int nPar = 4;
+    x = gsl_vector_alloc (nPar);
+
+    vector<double> p;
+    //p[0]=3.60325e-06; p[1]=0.0627581;
+    p = {1e-4, 0, 0, 0};
+    //p[0]=-9.58527, p[1]=7.06043; p[2]= -11.3249;
+    //p[0]=-11.2986, p[1]=4.75103; p[2] =  -9.05604; p[3] =  -0.800283;
+    p[0]=-11.2544; p[1]=4.05222; p[2] = -7.91101; p[3] =  -0.798476;
+
+    Eval(p.data(), nullptr);
+    return;
+
+    for(int i = 0; i < nPar; ++i)
+        gsl_vector_set (x, i, p[i]);
+
+    /* Set initial step sizes to 1 */
+    ss = gsl_vector_alloc (nPar);
+    gsl_vector_set_all (ss, 10);
+
+
+    /* Initialize method and iterate */
+    minex_func.n = nPar;
+    minex_func.f = my_f;
+    minex_func.params = this;
+
+    s = gsl_multimin_fminimizer_alloc (T, nPar);
+    gsl_multimin_fminimizer_set (s, &minex_func, x, ss);
+
+    do
+    {
+        iter++;
+        status = gsl_multimin_fminimizer_iterate(s);
+
+        if (status) 
+            break;
+
+        size = gsl_multimin_fminimizer_size (s);
+        status = gsl_multimin_test_size (size, 1e-4);
+
+
+
+        if (status == GSL_SUCCESS)
+        {
+            printf ("converged to minimum at\n");
+        }
+
+        printf ("%5d %10.3e %10.3e f() = %7.3f size = %.3f\n", 
+                iter,
+                gsl_vector_get (s->x, 0), 
+                gsl_vector_get (s->x, 1), 
+                s->fval, size);
+    }
+    while (status == GSL_CONTINUE && iter < 1);
+
+    gsl_vector_free(x);
+    gsl_vector_free(ss);
+    gsl_multimin_fminimizer_free (s);
+
+
 }
 
+double Fitter::Eval(const double *p, const double *q)
+{
+    return (*this)(p, q);
+}
 
-double Fitter::operator()(const double *p)
+double Fitter::operator()(const double *p, const double *q)
 {
     cout << "Matrix initialised" << endl;
 
     solver.InitF([=](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
-        return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
+        //return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
+        return exp(p[0] + p[1]*log(kT2) + p[2]*pow(log(kT2),2)  + p[3]*log(x)) ;
     });
     solver.EvolveNew();
     AddTheory(solver.F2rap, solver.FLrap);
     int nDF;
     double chi2 = getChi2(nDF);
 
+    cout << "For parameters p[0]=" << p[0]<<", p[1]="<<p[1] <<" "<< p[2] <<" "<< p[3]<< endl;
     cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
 
     return chi2;

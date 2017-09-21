@@ -82,6 +82,7 @@ int main(int argc, char **argv)
     Fitter fitter;
     fitter.Init();
 
+    MPI_Finalize();
     return 0;
 
     double yNew = log(1e8/1e2);
