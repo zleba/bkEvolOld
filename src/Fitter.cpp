@@ -74,7 +74,7 @@ my_f (const gsl_vector *v, void *params)
 
     //return pow(x-0.3, 2) + pow(y-0.5,2);
     double *q = nullptr;
-    return fit->Eval(x, q);
+    return fit->Eval(x);
 
     //return p[2] * (x - p[0]) * (x - p[0]) +
         //p[3] * (y - p[1]) * (y - p[1]) + p[4]; 
@@ -96,8 +96,11 @@ void Fitter::Init()
 
     solver.LoadConvKernels("data/kernel");
 
-    //MPI_Finalize();
-    //return 0;
+
+    CalculateBasis(5, "basis.dat");
+
+    MPI_Finalize();
+    return;
 
     //fitter = this;
 
@@ -169,7 +172,7 @@ void Fitter::Init()
     //p[0]=-11.2986, p[1]=4.75103; p[2] =  -9.05604; p[3] =  -0.800283;
     p[0]=-11.2544; p[1]=4.05222; p[2] = -7.91101; p[3] =  -0.798476;
 
-    Eval(p.data(), nullptr);
+    Eval(p.data());
     return;
 
     for(int i = 0; i < nPar; ++i)
@@ -221,15 +224,9 @@ void Fitter::Init()
 
 }
 
-double Fitter::Eval(const double *p, const double *q)
-{
-    return (*this)(p, q);
-}
-
-double Fitter::operator()(const double *p, const double *q)
+double Fitter::Eval(const double *p)
 {
     cout << "Matrix initialised" << endl;
-
     solver.InitF([=](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
@@ -245,14 +242,44 @@ double Fitter::operator()(const double *p, const double *q)
     cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
 
     return chi2;
+
+}
+
+double Fitter::operator()(const double *p, const double *q)
+{
 }
 
 
-void Fitter::DoFit()
+void Fitter::CalculateBasis(int nElem, string name)
 {
-    //Do fitting
+    arma::field<arma::mat> storage(nElem, 4);
+    for(int iEl = 0; iEl < nElem; ++iEl) {
+        //Do fitting
+        cout << "Matrix initialised" << endl;
+        solver.InitF([&](double x, double kT2) {
+            //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
+            //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
+            //return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
+
+            double t = 2.*(log(kT2)- solver.Lmin) / (solver.Lmax - solver.Lmin) - 1;
+            return cos(iEl*acos(t));
+
+        });
+        solver.EvolveNew();
+        AddTheory(solver.F2rap, solver.FLrap);
+
+        storage(iEl, 0) = Solver::vector2matrix(solver.PhiRapN);
+        storage(iEl, 1) = Solver::vector2matrix(solver.F2rap);
+        storage(iEl, 2) = Solver::vector2matrix(solver.FLrap);
+        storage(iEl, 3) = Fitter::getPoints();
 
 
+        //int nDF;
+        //double chi2 = getChi2(nDF);
+        //cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
+
+    }
+    storage.save(name);
 
 }
 
@@ -299,4 +326,17 @@ double Fitter::getChi2(int &nDF)
         ++nDF;
     }
     return chi2;
+}
+
+arma::mat Fitter::getPoints()
+{
+    arma::mat dataMat(data.size(), 5);
+    for(int i = 0; i < data.size(); ++i) {
+       dataMat(i, 0) = data[i].x; 
+       dataMat(i, 1) = data[i].Q2; 
+       dataMat(i, 2) = data[i].sigma; 
+       dataMat(i, 3) = data[i].err; 
+       dataMat(i, 4) = data[i].theor; 
+    }
+    return dataMat;
 }

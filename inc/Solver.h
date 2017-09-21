@@ -872,5 +872,12 @@ struct Solver {
         }
     }
 
+    static arma::mat vector2matrix(vector<arma::vec> &Vec) {
+        arma::mat matPhi(Vec.size(), Vec[0].n_rows);
+        for(int i = 0; i < Vec.size(); ++i)
+            matPhi.row(i) =  Vec[i].t();
+        return matPhi;
+    }
+
 };
 #endif 

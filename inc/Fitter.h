@@ -30,9 +30,10 @@ class Fitter {
 
     double getChi2(int &nDF);
     double operator()(const double *p, const double *q);
-    double Eval(const double *p, const double *q);
+    double Eval(const double *p);
 
-    void DoFit();
+    void CalculateBasis(int nElem, string name);
+    arma::mat getPoints();
 
 };
 
