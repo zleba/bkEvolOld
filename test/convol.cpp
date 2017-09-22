@@ -161,7 +161,7 @@ struct Integrator {
             FT += ft*w; FL += fl*w;
         }
 
-        double Kphi = 1./2;
+        double Kphi = 1./2; //average over angle
         double Kk   = (Lmax-Lmin)/2;
         double K = Kphi * Kk;
 
@@ -241,13 +241,13 @@ pair<double,double> Kernel::MainTerm(double beta, double k, double cosPhi)
 
 
     double r1 = pow2((D2 - D1) / (D1*D2));
-    double r2 = k2/(D1*D1) - (k2-mix)/(D1*D2) + kp2/(D2*D2);
+    double r2 = k2/(D1*D1) - 2*(k2-mix)/(D1*D2) + kp2/(D2*D2);
     
     double FT = f * r2 + mq2 * r1;
     double FL = 4*Q2*pow2(beta*(1-beta)) * r1;
 
     //Overall constant
-    double fact = as*eq2*Q2/(4*M_PI) * k2;
+    double fact = as*eq2*Q2/(4*M_PI) * k2/p2;
 
 
 

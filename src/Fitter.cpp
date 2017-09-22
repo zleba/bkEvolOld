@@ -97,7 +97,7 @@ void Fitter::Init()
     solver.LoadConvKernels("data/kernel");
 
 
-    CalculateBasis(5, "basis.dat");
+    CalculateBasis(40, "basis.dat");
 
     MPI_Finalize();
     return;
@@ -296,7 +296,9 @@ double getValue(vector<arma::vec> &f, int Q2id, double x)
     double part = pos - id;
 
     //linear interpolation
-    double val = f[id](Q2id)*(1-pos)  + f[id+1](Q2id)*pos;
+    double val = f[id](Q2id)*(1-part)  + f[id+1](Q2id)*part;
+    assert(val >= min(f[id](Q2id), f[id+1](Q2id)));
+    assert(val <= max(f[id](Q2id), f[id+1](Q2id)));
     
     return val;
 }

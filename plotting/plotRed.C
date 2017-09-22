@@ -155,7 +155,8 @@ void plotRed()
     map<double, TGraphErrors*> theorX, theorQ2;
     map<double, TGraphErrors*> dataX, dataQ2;
 
-    tie(theorX, theorQ2) = ReadSigmaTheor("../sigmaRed");
+    //tie(theorX, theorQ2) = ReadSigmaTheor("../ sigmaRed");
+    tie(theorX, theorQ2) = ReadSigmaTheor("fitOut");
     tie(dataX, dataQ2) = ReadSigmaData("../test/heraTables/HERA1+2_NCep_920.dat");
 
     TCanvas *can = new TCanvas("can", "canvas");
