@@ -49,12 +49,15 @@ vector<double> LoadData(string fname)
         //cout << "Ahoj " << Q2 <<" "<< x <<" "<< Sigma <<" : " << stat <<" "<< sqrt(err2)<< endl;
     }
     cout << nPoints << " "<< nSmallx << endl;
-    //for(auto q2 : Q2vals) {
-        //cout << q2 << endl;
-    //}
     sort(Q2vals.begin(), Q2vals.end());
     auto last = unique(Q2vals.begin(), Q2vals.end());
     Q2vals.erase(last, Q2vals.end()); 
+
+    for(auto q2 : Q2vals) {
+        cout << q2 << endl;
+    }
+    exit(0);
+
     return Q2vals;
 
 }
