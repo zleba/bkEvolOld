@@ -130,7 +130,7 @@ struct Solver {
     const double eps = 1e-7;
     const int Nint; // kT nodes in Nintegral
     const int N;// = 32*16 + 1; //must be 2*n+1
-    const int Nrap = 1042;
+    const int Nrap = 1024;
     const bool toTrivial = true;
 
     const double Lmin= log(1e-2), Lmax = log(1e6);
@@ -155,9 +155,14 @@ struct Solver {
 
     arma::cube convF2, convFL;
     vector<arma::vec> F2rap, FLrap;
+    
+    //vector<arma::vec> &GetF2() {return F2rap;}
+    //vector<arma::vec> &GetFL() {return FLrap;}
 
 
     arma::mat extMat, redMat;
+
+    gpuBooster gpu;
 
     pair<double,double> GetKerPar(double l, double lp);
     double Delta(double z, double k2, double q2);
@@ -336,12 +341,6 @@ struct Solver {
         cout << "Reduce done" << endl;
 
 
-        if(start == 0) {
-            assert(convF2.load("data/convFT.h5", arma::hdf5_binary));
-            assert(convFL.load("data/convFL.h5", arma::hdf5_binary));
-        }
-        MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 
         //matN.save("ahoj.hdf5", arma::hdf5_binary);
@@ -397,6 +396,16 @@ struct Solver {
         matNDiag.load(file+"_diag.h5", arma::hdf5_binary);
         matNInv.load(file+"_inv.h5", arma::hdf5_binary);
     }
+
+
+    void LoadConvKernels(string file) {
+        assert(convF2.load("data/convF2.h5", arma::hdf5_binary));
+        assert(convFL.load("data/convFL.h5", arma::hdf5_binary));
+
+        //MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        //MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
+
 
 
 
@@ -481,9 +490,12 @@ struct Solver {
     void EvolveNew() {
         const double stepY = (rapMax - rapMin) / (Nrap-1);
 
-        gpuBooster gpu;
+        F2rap.resize(Nrap);
+        FLrap.resize(Nrap);
+
         bool doGPU = true;
-        if(doGPU) gpu.Init(matN);
+        if(doGPU & !gpu.isInited) gpu.InitAll(matN, convF2, convFL);
+        if(doGPU) gpu.ResetVector();
 
         int start = 0;
 
@@ -495,6 +507,9 @@ struct Solver {
             }
             else
                 PhiRapN[0] = GetLinSolution(MatEq, Phi0N[0]);
+
+            F2rap[0].zeros(convF2.n_rows);
+            FLrap[0].zeros(convFL.n_rows);
         }
         else { //Dummy start for DGLAP
             for(int y = 0; y <= start; ++y)
@@ -507,6 +522,9 @@ struct Solver {
 
             arma::vec yTemp(N, arma::fill::zeros);
             arma::vec myVec(N, arma::fill::zeros);
+
+            F2rap[y] = 0.5*convF2.slice(y) * PhiRapN[0];// + convF2.slice(0) * PhiRapN[y]);
+            FLrap[y] = 0.5*convFL.slice(y) * PhiRapN[0];// + convFL.slice(0) * PhiRapN[y]);
 
             //openMPI treatment
             int start=1, end;
@@ -522,8 +540,10 @@ struct Solver {
             }
             else {
                 if(y > 1) {
-                    gpu.Convolute(y);
-                    gpu.GetResult(y, yTemp);
+                    gpu.ConvoluteAll(y);
+                    //gpu.GetResult(y, yTemp);
+                    gpu.GetResults(y, yTemp, F2rap[y], FLrap[y]);
+
                 }
 
                 /*
@@ -549,7 +569,7 @@ struct Solver {
             //yTemp = stepY * yTemp + Phi0N[y];
             yTemp += Phi0N[y];
             
-            if(start == 1)
+            if(y % 100 == 0)
                 cout <<"Rap point " << y << endl;
             /*
             auto matNow = mat[0]; //Adding diagonal DGLAP term
@@ -570,6 +590,9 @@ struct Solver {
             //PhiRapN[y] = GetLinSolution(matEq, yTemp);
             PhiRapN[y] = matNInv.slice(y) * yTemp;
 
+            F2rap[y] += 0.5*convF2.slice(0) * PhiRapN[y];
+            FLrap[y] += 0.5*convFL.slice(0) * PhiRapN[y];
+
             if(doGPU) gpu.SetPhi(y, PhiRapN[y]);
 
             //PhiRapN[y] =  IterSolution(matEq, double factor, const arma::vec &y);
@@ -588,16 +611,20 @@ struct Solver {
 
     }
 
-    void CalcF2() {
+    void CalcF2L() {
+        F2rap.resize(Nrap);
+        FLrap.resize(Nrap);
         F2rap[0] = arma::vec(convF2.n_rows, arma::fill::zeros);
+        FLrap[0] = arma::vec(convFL.n_rows, arma::fill::zeros);
         for(int y = 1; y < Nrap; ++y) {
             //kT spectrum for particular bin y
             //Starting point of evol with 0.5 (Trapezius)
             F2rap[y] = 0.5*(convF2.slice(y) * PhiRapN[0] + convF2.slice(0) * PhiRapN[y]);
-
+            FLrap[y] = 0.5*(convFL.slice(y) * PhiRapN[0] + convFL.slice(0) * PhiRapN[y]);
             //Remaining without mult by 0.5, convF2 should contain deltaRap factor
             for(int d = 1; d < y; ++d) {
                 F2rap[y] += convF2.slice(d) * PhiRapN[y-d];
+                FLrap[y] += convFL.slice(d) * PhiRapN[y-d];
             }
         }
     }
@@ -676,22 +703,6 @@ struct Solver {
     void InitF(function<double(double, double)> fun) {
         const double stepY = (rapMax-rapMin) / (Nrap-1);
         
-        /*
-        //Old version
-        Phi0.resize(Nrap);
-        for(int y = 0; y < Nrap; ++y) {
-            Phi0[y].resize(N);
-            double x = exp(-y*stepY);
-            for(int i = 0; i < N; ++i) {
-                double kT2 = exp(nodBase.xi[i]);
-                Phi0[y][i] = fun(x, kT2);
-            }
-        }
-        PhiRap.resize(Nrap);
-        for(auto &ph : PhiRap)
-            ph.resize(N, 0.);
-        */
-
         //New version
         Phi0N.resize(Nrap);
         for(int y = 0; y < Nrap; ++y) {
@@ -825,5 +836,48 @@ struct Solver {
             }
         }
     }
+
+
+    void PrintReduce() {
+        const double stepY = (rapMax - rapMin) / (Nrap-1);
+
+        vector<double> q2Arr={0.15, 0.2, 0.25, 0.35, 0.4, 0.5, 0.65, 0.85, 1.2, 1.5, 2, 2.7, 3.5, 4.5,
+        6.5, 8.5, 10, 12, 15, 18, 22, 27, 35, 45, 60, 70, 90, 120, 150, 200, 250,
+        300, 400, 500, 650, 800, 1000, 1200, 1500, 2000, 3000, 5000, 8000, 12000, 20000, 30000};
+
+        double sBeam = pow(318.12,2);
+
+        assert(F2rap.size() == matN.n_slices);
+        assert(FLrap.size() == matN.n_slices);
+
+        for(int rapID = 0; rapID < Nrap; ++rapID) {
+            double rap = rapMin + rapID*stepY;
+            double x = exp(-rap);
+
+            for(int i = 0; i < 46; ++i) {
+                double Q2 = q2Arr[i];
+                double y = Q2/(x*sBeam);
+        
+                double yPlus = 1+(1-y)*(1-y);
+
+                //cout << " rapID " << rapID << " " << F2rap[rapID].n_rows << endl;
+                //assert(F2rap[rapID].n_rows == 46);
+                //assert(FLrap[rapID].n_rows == 46);
+                double sRed = F2rap[rapID](i) - y*y/yPlus * FLrap[rapID](i);
+
+                //cout << x << " "<< Q2 <<" "<< sRed << endl;
+                cout << x << " "<< Q2 <<" "<< F2rap[rapID](i) <<" "<< FLrap[rapID](i) << endl;
+
+            }
+        }
+    }
+
+    static arma::mat vector2matrix(vector<arma::vec> &Vec) {
+        arma::mat matPhi(Vec.size(), Vec[0].n_rows);
+        for(int i = 0; i < Vec.size(); ++i)
+            matPhi.row(i) =  Vec[i].t();
+        return matPhi;
+    }
+
 };
 #endif 

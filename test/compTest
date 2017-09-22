@@ -1,1 +1,1 @@
-g++ -O3  arma.cpp  -Wl,-R/home/radek/Downloads/arma/armalib/lib -L/home/radek/Downloads/arma/armalib/lib -larmadillo
+g++ -O3  iterate.cpp  -Wl,-R/home/radek/Downloads/arma/armalib/lib -L/home/radek/Downloads/arma/armalib/lib -larmadillo
