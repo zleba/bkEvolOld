@@ -16,11 +16,15 @@ void MergeFiles(string name)
 
     cout << "N rows is " << probe.n_rows << endl;
     cout << "N cols is " << probe.n_cols << endl;
-    arma::cube convCube(probe.n_rows, probe.n_cols, nQ2);
+    //arma::cube convCube(probe.n_rows, probe.n_cols, nQ2);
+    arma::cube convCube(nQ2, probe.n_rows, probe.n_cols);
 
-    for(int i = 0; i < nQ2; ++i) {
-        assert(probe.load(address+name+"_"+to_string(i) + ".h5", arma::hdf5_binary));
-        convCube.slice(i) = probe;
+    for(int qID = 0; qID < nQ2; ++qID) {
+        assert(probe.load(address+name+"_"+to_string(qID) + ".h5", arma::hdf5_binary));
+        //convCube.slice(qID) = probe;
+        for(int i = 0; i < convCube.n_cols; ++i)
+        for(int j = 0; j < convCube.n_slices; ++j)
+            convCube(qID, i, j) = probe(i, j);
 
     }
     convCube.save(address+name+".h5", arma::hdf5_binary);
