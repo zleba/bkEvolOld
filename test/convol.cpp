@@ -56,7 +56,7 @@ vector<double> LoadData(string fname)
     for(auto q2 : Q2vals) {
         cout << q2 << endl;
     }
-    exit(0);
+    //exit(0);
 
     return Q2vals;
 
@@ -250,7 +250,7 @@ pair<double,double> Kernel::MainTerm(double beta, double k, double cosPhi)
     double FL = 4*Q2*pow2(beta*(1-beta)) * r1;
 
     //Overall constant
-    double fact = as*eq2*Q2/(4*M_PI) * k2/p2;
+    double fact = as*eq2*Q2/(4*M_PI) * k2;
 
 
 
@@ -338,8 +338,8 @@ void CalculateGrid(string fname, int qid)
                 double p = quad.kNodes[N2id][i];
                 //cout << i <<" "<< p << endl;
 
-                auto resL =  quad.GetIntegral(8, 7, z, Q2, p*p, mL2, eL2);
-                auto resC =  quad.GetIntegral(8, 7, z, Q2, p*p, mC2, eC2);
+                auto resL =  quad.GetIntegral(9, 7, z, Q2, p*p, mL2, eL2);
+                auto resC =  quad.GetIntegral(9, 7, z, Q2, p*p, mC2, eC2);
 
                 conF2( i, y) = (resL.first + resC.first) + (resL.second + resC.second);
                 conFL( i, y) = resL.second + resC.second;
