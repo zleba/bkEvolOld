@@ -5,6 +5,8 @@
 #include "TAxis.h"
 #include "Fitter.h"
 
+#include "yaml-cpp/yaml.h"
+
 map<double, TGraph*> ReadFile(const char *fName);
 
 int main(int argc, char **argv)
@@ -60,6 +62,9 @@ int main(int argc, char **argv)
     ) << endl;
     return 0;
     */
+
+    YAML::Load(cin);
+
 
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
