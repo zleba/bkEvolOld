@@ -63,6 +63,45 @@ double GetAngle(double l, double lp, double cond)
 //
 
 ////////////////////////////////////////////////
+//Clasical BFKL equation
+////////////////////////////////////////////////
+
+//Clasicall BFKL
+/*
+   if(i != j)
+   mat[y][i][j] += Kernel(L, Lp) * w;
+
+   double kerDs, kerDr;
+   tie(kerDs, kerDr) = KernelDiag(L, Lp);
+   if(i != j)
+   mat[y][i][i] += (kerDs+kerDr) * w;
+   else
+   mat[y][i][i] += (kerDr) * w;
+   */
+
+
+double Solver::KernelBFKLDiag(double l, double lp, double z)
+{
+    double Exp = l*l / (lp*lp);
+    double resSing = 0;
+    if(l != lp) resSing = as * (- Exp/(abs(1. - Exp)) );
+    double resReg  = as * (+ Exp/sqrt(4 + Exp*Exp));
+    //resReg  = 0;
+    return (resSing + resReg);
+}
+
+double Solver::KernelBFKL(double l, double lp, double z)
+{
+    if(l == lp) return 0;
+    double Exp = l*l / (lp*lp);
+    double res = as / (abs(1 - Exp));
+    return res;
+}
+
+
+
+
+////////////////////////////////////////////////
 //Equation 79 (with eps reg)
 ////////////////////////////////////////////////
 

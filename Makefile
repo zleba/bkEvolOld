@@ -16,8 +16,8 @@ CUDA=/usr/local/cuda-8.0/bin/nvcc
 	#g++ -g -O3 $(CFLAGS)  $^ $(LIBS) -lgsl -lgslcblas -fopenmp -o $@ 
 
 
-SRCS = src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp
-OBJS = obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o
+SRCS = src/Solver.cpp  src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp 
+OBJS = obj/Solver.o obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o
 
 
 #obj/%.o: src/%.cpp inc/Solver.h inc/integration.h

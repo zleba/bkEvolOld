@@ -3,20 +3,20 @@
 #include <vector>
 #include <iomanip>
 
-#include <gsl/gsl_chebyshev.h>
+//#include <gsl/gsl_chebyshev.h>
 
-#include "TLegend.h"
+//#include "TLegend.h"
 
 #include "TGraph.h"
-#include "TCanvas.h"
-#include "TAxis.h"
+//#include "TCanvas.h"
+//#include "TAxis.h"
 #include <cmath>
 #include <cassert>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <map>
-#include "TGraph2D.h"
+//#include "TGraph2D.h"
 #include <armadillo>
 
 using namespace std;

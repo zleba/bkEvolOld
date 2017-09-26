@@ -5,7 +5,6 @@
 #include "TAxis.h"
 #include "Fitter.h"
 
-#include "yaml-cpp/yaml.h"
 
 map<double, TGraph*> ReadFile(const char *fName);
 
@@ -63,8 +62,6 @@ int main(int argc, char **argv)
     return 0;
     */
 
-    YAML::Load(cin);
-
 
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
@@ -84,23 +81,28 @@ int main(int argc, char **argv)
     auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
     //return 0;
 
-    Fitter fitter;
-    fitter.Init();
+    //Fitter fitter(cin);
+    //fitter.Init();
+    //MPI_Finalize();
+    //return 0;
 
-    MPI_Finalize();
-    return 0;
+
+
 
     double yNew = log(1e8/1e2);
     int Ny = 280;
     cout << "Starting " << endl;
-    Solver sol512(512+1);
+    Solver sol512(cin);
     sol512.InitF([](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         return kT2 * exp(-kT2);// * pow(max(0., 0.4-x), 2);
     });
     cout << "Weights calculated " << endl;
-    //sol512.InitMat();
+    sol512.InitMat();
+    sol512.EvolveNew();
+
+    return 0;
 
     //sol512.SaveEvolKernels("data/kernel");
     sol512.LoadEvolKernels("data/kernel");
