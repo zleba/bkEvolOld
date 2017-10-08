@@ -34,8 +34,8 @@ void MergeFiles(string name)
 
 int main()
 {
-    MergeFiles("convF2");
-    MergeFiles("convFL");
+    MergeFiles("conv_F2");
+    MergeFiles("conv_FL");
 
 
 
