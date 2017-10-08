@@ -58,6 +58,12 @@ double GetAngle(double l, double lp, double cond)
     return acos(Cos);
 }
 
+
+//double Solver::alphaS(double l, double lp)
+//{
+    //return as;
+//}
+
 //Arguments are always momenta l and lp in GeV, and z
 //
 //

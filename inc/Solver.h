@@ -52,7 +52,7 @@ struct Nodes {
     void Init(int _N, double _a, double _b) { N=_N; a=_a; b=_b; }
     int N;
     double a, b;
-    vector<double> xi, wi;
+    vector<double> xi, SqrtExpXi,  wi;
     void CalcNodes(bool bkSolverMode = true) {
         /*
         wi.resize(N);
@@ -105,6 +105,12 @@ struct Nodes {
 
             wi.front() *= 0.5;
         }
+
+
+        SqrtExpXi.resize(xi.size());
+        for(int i = 0; i < xi.size(); ++i)
+            SqrtExpXi[i] = exp(0.5*xi[i]);
+
         //exit(0);
     }
     double Integrate(function<double(double)> fun) {
@@ -159,6 +165,7 @@ struct Solver {
         boost::property_tree::ptree tree;
         boost::property_tree::ini_parser::read_ini(Stream, tree);
 
+        bool bkSolverGrid;
         try {
 
             as = tree.get<double>("Constants.alphaS");
@@ -175,6 +182,9 @@ struct Solver {
             Nint = tree.get<int>("TransverseSpace.NkT2int");
             Lmin = log( tree.get<double>("TransverseSpace.kT2Min") );
             Lmax = log( tree.get<double>("TransverseSpace.kT2Max") );
+            bkSolverGrid = tree.get<bool>("TransverseSpace.bkSolverGrid");
+            toTrivial = tree.get<bool>("TransverseSpace.toTrivial");
+            
         }
         catch(const std::exception& e) {
             cout << "Some of parameters in steering not defined:" << endl;
@@ -193,14 +203,16 @@ struct Solver {
 
         cout << "Nrap = " << Nrap << endl;
         cout << "N = " << N << endl;
+        cout << "bkSolverGrid = " << bkSolverGrid << endl;
 
         //exit(1);
 
+        if(bkSolverGrid) assert(N == Nint);
 
         nod.Init(Nint, Lmin, Lmax);
         nodBase.Init(N, Lmin, Lmax);
-        nod.CalcNodes(false);
-        nodBase.CalcNodes(false);
+        nod.CalcNodes(bkSolverGrid);
+        nodBase.CalcNodes(bkSolverGrid);
         tie(redMat,extMat) = GetTransMatrices(N, Nint, toTrivial);
 
     }
@@ -274,6 +286,7 @@ struct Solver {
 
 
     void InitMat();
+    void SetSolution(function<double(double, double)> fun);
 
     void SaveEvolKernels(string file) {
         matN.save(file+"_base.h5", arma::hdf5_binary);

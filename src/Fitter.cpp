@@ -161,7 +161,7 @@ void Fitter::Init()
 
     /* Starting point */
 
-    int nPar = 3;
+    int nPar = 4;
     x = gsl_vector_alloc (nPar);
 
     vector<double> p;
@@ -169,7 +169,14 @@ void Fitter::Init()
     p = {1e-4, 0, 0, 0};
     //p[0]=-9.58527, p[1]=7.06043; p[2]= -11.3249;
     //p[0]=-11.2986, p[1]=4.75103; p[2] =  -9.05604; p[3] =  -0.800283;
-    p[0]=-11.2544; p[1]=4.05222; p[2] = -7.91101; p[3] =  -0.798476;
+    //p[0]=-11.2544; p[1]=4.05222; p[2] = -7.91101; p[3] =  -0.798476;
+
+    //p[0]=-2.26559; p[1]=8.30788; p[2] =  -7.52139; p[3] = 0;
+    //p[0]=-1.66264; p[1]=8.35095; p[2] =  -9.09875; p[3] =  -0.483668;
+    //p[0]=-0.5853; p[1]=5.02503; p[2] = -7.37439; p[3] =  -1.3508;
+
+    //p[0]=0.268914; p[1]=8.01361; p[2]= -26.609; p[3] =  1.87533;
+    p[0]=0.264653; p[1]=-3.19877; p[2] = -8.82977; p[3] = 0.398698;
 
     //Eval(p.data());
     //return;
@@ -180,6 +187,7 @@ void Fitter::Init()
     /* Set initial step sizes to 1 */
     ss = gsl_vector_alloc (nPar);
     gsl_vector_set_all (ss, 2);
+    gsl_vector_set(ss,3, 0.2);
 
 
     /* Initialize method and iterate */
@@ -214,7 +222,7 @@ void Fitter::Init()
                 gsl_vector_get (s->x, 1), 
                 s->fval, size);
     }
-    while (status == GSL_CONTINUE && iter < 50);
+    while (status == GSL_CONTINUE && iter < 200);
 
     gsl_vector_free(x);
     gsl_vector_free(ss);
@@ -230,7 +238,7 @@ double Fitter::Eval(const double *p)
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
-        return exp(p[0] + p[1]*log(kT2) + p[2]*pow(log(kT2),2)) ;
+        return exp(p[0] + p[1]*log(kT2) + p[2]*pow(log(kT2),2) + p[3]*pow(log(kT2),3) );
     });
     solver.EvolveNew();
     AddTheory(solver.F2rap, solver.FLrap);
@@ -297,8 +305,13 @@ double getValue(vector<arma::vec> &f, int Q2id, double x)
     int id = int(pos);
     double part = pos - id;
 
+    assert(part >= 0);
+    assert(part <= 1);
     //linear interpolation
     double val = f[id](Q2id)*(1-part)  + f[id+1](Q2id)*part;
+
+    if(!isfinite(val)) return 0;
+
     assert(val >= min(f[id](Q2id), f[id+1](Q2id)));
     assert(val <= max(f[id](Q2id), f[id+1](Q2id)));
     
