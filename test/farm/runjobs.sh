@@ -16,6 +16,6 @@ echo "cd \$TMPDIR" >> $qsub_file
 echo "time $address/convol $i" >> $qsub_file
 #echo "$address/disc/a.out" >> $qsub_file
 
-echo "cp conv??_*.h5  /nfs/dust/cms/user/zlebcr/Krakow/convMat/"  >> $qsub_file
+echo "cp conv_??_*.h5  /nfs/dust/cms/user/zlebcr/Krakow/convMat/"  >> $qsub_file
 
 done

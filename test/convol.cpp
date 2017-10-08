@@ -8,6 +8,7 @@
 #include <fstream>
 #include <set>
 #include <armadillo>
+#include <random>
 
 using namespace std;
 
@@ -162,11 +163,14 @@ struct Integrator {
             double ft, fl; 
             tie(ft, fl) = kern.Integrand(k, cosPhi);
             FT += ft*w; FL += fl*w;
+            //FT += w*k*k; FL += w*k*k*k*k;
         }
 
         double Kphi = 1./2; //average over angle
         double Kk   = (Lmax-Lmin)/2;
         double K = Kphi * Kk;
+
+        //cout <<"Ahoj " <<  FT * K << " " << FL *K <<" "<<   0.5*(exp(2*Lmax)-exp(2*Lmin)) << endl;
 
         return make_pair(K*FT, K*FL);
     }
@@ -190,7 +194,9 @@ pair<double,double> Kernel::SingleIntegrand(double beta, double k, double cosPhi
     if(beta <= 0 || beta >= 1) return make_pair(0.,0.);
 
     double der = 1./(z*abs(DerivBeta(beta, k, cosPhi)));
-    return MainTerm(beta, k, cosPhi);
+    auto mTerm = MainTerm(beta, k, cosPhi);
+    return make_pair(mTerm.first*der, mTerm.second*der);
+    //return MainTerm(beta, k, cosPhi)*der;
 }
 
 //Derivative dz^-1/dbeta
@@ -203,7 +209,7 @@ double Kernel::DerivBeta(double beta, double k, double cosPhi)
     double c2 = k2 + mq2 + p2 - 2*mix;
 
 
-    double r = (c1 / pow2(1-beta) - c2/pow2(beta));
+    double r = (c1/pow2(1-beta) - c2/pow2(beta)) / Q2;
 
     return r;
 }
@@ -215,7 +221,7 @@ pair<double,double> Kernel::GetBeta(double z, double k, double cosPhi)
     
     double a = 1./z - 1;
     double b = (2*mix - p2)/Q2  - a;
-    double c = (k2 - 2*mix + k2 + mq2) / Q2;
+    double c = (p2 - 2*mix + k2 + mq2) / Q2;
 
     if(z==1) {
         double res = -c/b;
@@ -258,6 +264,63 @@ pair<double,double> Kernel::MainTerm(double beta, double k, double cosPhi)
     return make_pair(fact*FT, fact*FL);
 }
 
+/*
+void MCtest()
+{
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+    const double minK2 = 1e-2;
+    const double maxK2 = 1e6;
+
+    double m = 0;
+
+    Kernel ker;
+    ker.mq2 = 0;
+    ker.eq2 = 1;
+    ker.Q2 = 5;
+    ker.p = 5.5;
+    ker.p2 = ker.p*ker.p;
+
+    double FTsum=0, FLsum=0;
+    double FTsum2=0, FLsum2=0;
+    const int N = 1000;
+
+    for(int i = 0; i < N; ++i) {
+        double r1 = dist(mt);
+        double r2 = dist(mt);
+        double r3 = dist(mt);
+        double r4 = dist(mt);
+        double phi = 2*M_PI * r1;
+        double beta = r2;
+        double pLog = 0.5*  (log(minK2) + r3 * (log(maxK2) log(minK2)));
+        double kLog = 0.5*  (log(minK2) + r4 * (log(maxK2) log(minK2)));
+
+        ker.p = exp(pLog);
+        ker.p2 = ker.p * ker.p;
+
+        double k = exp(kLog);
+
+        double FT, FL;
+
+
+        tie(FT, FL) = ker.MainTerm(beta, k, cos(phi));
+
+        FTsum += FT;
+        FLsum += FL;
+        FTsum2 += FT*FT;
+        FLsum2 += FL*FL;
+
+    }
+    FTsum  /= N;
+    FLsum  /= N;
+    FTsum2 /= N;
+    FLsum2 /= N;
+
+    cout << FTsum << " " << sqrt(FTsum2 - FTsum*FTsum) << endl;
+}
+*/
 
 
 vector<double> GetWeights(int Size)
@@ -323,8 +386,8 @@ void CalculateGrid(string fname, int qid)
     quad.Init();
 
     const double mL2 = 0;
-    const double mC2 = 1.3*1.3;
-    const double eL2 = 2* 1/3.*1/3. + 2/3.*2/3.;
+    const double mC2 = 1.4*1.4;
+    const double eL2 = 2* 1/3.*1/3. + 1*2/3.*2/3.;
     const double eC2 = 2/3.*2/3.;
 
     //for(int qid = 5; qid < 6; ++qid) {
@@ -340,6 +403,7 @@ void CalculateGrid(string fname, int qid)
 
                 auto resL =  quad.GetIntegral(9, 7, z, Q2, p*p, mL2, eL2);
                 auto resC =  quad.GetIntegral(9, 7, z, Q2, p*p, mC2, eC2);
+                //auto resC = make_pair(0.,0.);
 
                 conF2( i, y) = (resL.first + resC.first) + (resL.second + resC.second);
                 conFL( i, y) = resL.second + resC.second;
@@ -356,8 +420,8 @@ void CalculateGrid(string fname, int qid)
     //string address = "/nfs/dust/cms/user/zlebcr/Krakow/convMat/";
     string address = "";
 
-    conF2.save(address+"convF2_"+to_string(qid)+".h5", arma::hdf5_binary);
-    conFL.save(address+"convFL_"+to_string(qid)+".h5", arma::hdf5_binary);
+    conF2.save(address+"conv_F2_"+to_string(qid)+".h5", arma::hdf5_binary);
+    conFL.save(address+"conv_FL_"+to_string(qid)+".h5", arma::hdf5_binary);
 }
 
 
