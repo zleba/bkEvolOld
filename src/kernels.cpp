@@ -1,6 +1,7 @@
 #include "Solver.h"
 #include "integration.h"
 #include <iomanip>
+#include "alphaSpline.h"
 
 double IntegralCos(double a, double x)
 {
@@ -59,10 +60,13 @@ double GetAngle(double l, double lp, double cond)
 }
 
 
-//double Solver::alphaS(double l, double lp)
-//{
-    //return as;
-//}
+double Solver::alphaS(double l, double lp)
+{
+    const double fixTr = 1; // in GeV
+    double LnQ2 = max(2*log(l), 2*log(fixTr)); //Currently select l as scale
+
+    return alphaSpline::alphaS(LnQ2, 4) * 3./M_PI;
+}
 
 //Arguments are always momenta l and lp in GeV, and z
 //
@@ -88,6 +92,7 @@ double GetAngle(double l, double lp, double cond)
 
 double Solver::KernelBFKLDiag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double Exp = l*l / (lp*lp);
     double resSing = 0;
     if(l != lp) resSing = as * (- Exp/(abs(1. - Exp)) );
@@ -98,6 +103,7 @@ double Solver::KernelBFKLDiag(double l, double lp, double z)
 
 double Solver::KernelBFKL(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(l == lp) return 0;
     double Exp = l*l / (lp*lp);
     double res = as / (abs(1 - Exp));
@@ -114,6 +120,7 @@ double Solver::KernelBFKL(double l, double lp, double z)
 //Form of equation with phi
 double Solver::Kernel79(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -124,6 +131,7 @@ double Solver::Kernel79(double l, double lp, double z)
 //Form of bfkl with phi
 double Solver::Kernel79Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(lp > 2*l) return 0;
 
     double ker, par;
@@ -139,6 +147,7 @@ double Solver::Kernel79Diag(double l, double lp, double z)
 //Form of equation with phi
 double Solver::KernelSub79(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if (l == lp) return 0;
     double Int = 2 * IntegralPhi(l, lp, M_PI); //for uper and lower "hemisphere"
     return as * Int; 
@@ -147,6 +156,7 @@ double Solver::KernelSub79(double l, double lp, double z)
 //Form of bfkl with phi
 double Solver::KernelSub79Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double angleMax = GetAngle(l,lp, l*l);
     if(angleMax == 0) return 0;
     
@@ -171,6 +181,7 @@ double Solver::KernelSub79Diag(double l, double lp, double z)
 //Off-diagonal kernel with F(k+q)
 double Solver::Kernel80(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -188,6 +199,7 @@ double Solver::Kernel80(double l, double lp, double z)
 //Diagonal kernel with F(k)
 double Solver::Kernel80Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(lp > 2*l) return 0;
 
     double ker, par;
@@ -211,6 +223,7 @@ double Solver::Kernel80Diag(double l, double lp, double z)
 //Off-diagonal kernel with F(k+q)
 double Solver::KernelSub80(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if (l == lp) {
         double angleMin = GetAngle(l,lp, mu2);
         return as * 2 * IntegralPhiDiag(l, lp, angleMin);
@@ -230,6 +243,7 @@ double Solver::KernelSub80(double l, double lp, double z)
 //Diagonal kernel with F(k)
 double Solver::KernelSub80Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double angleMax = GetAngle(l,lp, l*l);
     if(angleMax == 0) return 0;
 
@@ -259,6 +273,7 @@ double Solver::KernelSub80Diag(double l, double lp, double z)
 //Off-diagonal kernel with F(k+q)
 double Solver::Kernel81(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -285,6 +300,7 @@ double Solver::Kernel81Diag(double l, double lp, double z) {
 //Off-diagonal kernel with F(k+q)
 double Solver::KernelSub81(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double angleMax = GetAngle(l,lp, l*l/z);
     if(angleMax == 0) return 0;
 
@@ -316,6 +332,7 @@ double Solver::KernelSub81Diag(double l, double lp, double z) {
 //Off-diagonal kernel with F(k+q)
 double Solver::Kernel83(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -342,6 +359,7 @@ double Solver::Kernel83Diag(double l, double lp, double z) {
 //Off-diagonal kernel with F(k+q)
 double Solver::KernelSub83(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(z == 1) return 0;
 
     // theta(k2/q2 - z/(1-z))
@@ -379,6 +397,7 @@ double Solver::Kernel84(double l, double lp, double z)
 //Diagonal kernel with F(k)
 double Solver::Kernel84Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(lp > 2*l) return 0;
     if(z == 1) return 0;
 
@@ -406,6 +425,7 @@ double Solver::KernelSub84(double l, double lp, double z)
 //Diagonal kernel with F(k)
 double Solver::KernelSub84Diag(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     if(z == 1) return 0;
 
     double angleMax1 = GetAngle(l,lp, l*l);
@@ -439,6 +459,7 @@ double PggMod(double z)
 
 double Solver::DGLAPterm(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker = lp*lp/(2*M_PI) *  1/(l*l); //constant before
 
     //q < l
@@ -495,9 +516,40 @@ double Solver::Kernel85Diag(double l, double lp, double z)
     return Kernel79Diag(l, lp, z);
 }
 
+
+double Harmonic(double stepSize, int nStep)
+{
+    double rapNow = 0;
+    double sum = 0;
+    for(int i = 0; i < nStep; ++i, rapNow -= stepSize) {
+        if(i == 0) continue;//skip z == 1
+        double step = (i == nStep - 1) ? stepSize/2 : stepSize;
+        double z = exp(rapNow);
+        sum += -z/(1-z) * step;
+        //sum += -1/(1-z) * step;
+        //cout << "RADEK " << x <<" "<< z << endl;
+    }
+    return sum;
+}
+
+
 //Off-diagonal z-diaginal kernel with F(k+q)
 double Solver::Kernel85zDiag(double l, double lp, double x)
 {
+    const double stepSize = (rapMax - rapMin) / (Nrap - 1);
+
+    static double harVals[5000];
+    static bool isInit = false;
+    if(!isInit) {
+        for(int nStep = 0; nStep < 5000; ++nStep)
+            harVals[nStep] = Harmonic(stepSize, nStep);
+        isInit = true;
+    }
+
+
+
+
+    double as = alphaS(l, lp);
     putZero = true;
     double ker = lp*lp/(2*M_PI) *  1/(l*l); //constant before
 
@@ -519,7 +571,7 @@ double Solver::Kernel85zDiag(double l, double lp, double x)
     double nStepReal = (rap-rapMin)/(rapMax-rapMin) * (Nrap - 1) + 1;
     int nStep = round(nStepReal);
     assert(abs(nStepReal-nStep) < 1e-2);
-    double stepSize = (rapMax - rapMin) / (Nrap - 1);
+    /*
     double sum = 0;
     double rapNow = rap;
     for(int i = 0; i < nStep; ++i, rapNow -= stepSize) {
@@ -530,6 +582,10 @@ double Solver::Kernel85zDiag(double l, double lp, double x)
         //sum += -1/(1-z) * step;
         //cout << "RADEK " << x <<" "<< z << endl;
     }
+    */
+
+    double sum = harVals[nStep];
+    //cout << "" << sum / harVals[nStep] << endl;
 
     //assert(x != 1);
     //cout << "x val = " << x << endl;
@@ -570,7 +626,7 @@ double Solver::Kernel86Diag(double l, double lp, double z)
 //Off-diagonal z-diaginal kernel with F(k+q)
 double Solver::Kernel86zDiag(double l, double lp, double x)
 {
-    return Kernel86zDiag(l, lp, x);
+    return Kernel85zDiag(l, lp, x);
 }
 
 ////////////////////////////////////////////////
@@ -582,6 +638,7 @@ double Solver::Kernel86zDiag(double l, double lp, double x)
 //Off-diagonal kernel with F(k+q)
 double Solver::Kernel87(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -624,6 +681,7 @@ double Solver::Kernel87Diag(double l, double lp, double z)
 //Off-diagonal kernel with F(k+q)
 double Solver::KernelSub87(double l, double lp, double z)
 {
+    double as = alphaS(l, lp);
     double ker, par;
     tie(ker, par) = GetKerPar(l, lp);
 
@@ -676,6 +734,7 @@ double Solver::KernelSub87Diag(double l, double lp, double z)
 
 double Solver::Delta(double z, double k2, double q2)
 {
+    double as = 0.2;
     if(k2 <= (k2+q2)*z) return 1;
     if(k2 <= mu2) return 1;
 
@@ -692,6 +751,7 @@ double Solver::Delta(double z, double k2, double q2)
 //Off-diagonal kernel with F(k+q)
 double Solver::KernelSub88(double l, double lp, double z)
 {
+    double as = 0.2;
     if (z == 1) //Delta has no effect
         return KernelSub80(l, lp, z);
 

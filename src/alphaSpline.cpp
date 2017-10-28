@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <map>
 
 
 Double alphaSpline::b[] = {};
@@ -173,6 +174,17 @@ void alphaSpline::FixParameters(int Order, Double value, int iFix, Double mZ)
 	cout << "AlphaS(mZ) =  " <<mZ << " "<< alphaS(2*log(mZ) ) << endl;
 }
 
+Double alphaSpline::alphaScached(Double k, int nfUser)
+{
+    static map<Double,Double> cached;
+    auto it = cached.find(k);
+
+    if (it == cached.end())
+        cached[k] = alphaS(2*log(k), nfUser);
+
+
+    return cached[k];
+}
 
 Double alphaSpline::alphaS(Double LnQ2, int nfUser)
 {

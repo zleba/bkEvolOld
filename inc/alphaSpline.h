@@ -34,6 +34,8 @@ public:
 	static pair<Double,Double> alphaS2PiWithD(Double LnQ2, int nfUser);
 
 
+    static Double alphaScached(Double k, int nfUser);
+
 	static Double GetLambda1(int nf, double a);
 	static Double GetLambda2(int nf, double a);
 	static Double GetLambda3(int nf, double a);

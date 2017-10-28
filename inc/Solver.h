@@ -18,6 +18,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
+#include "alphaSpline.h"
 
 using namespace std;
 
@@ -137,7 +138,7 @@ struct Nodes {
 
 
 struct Solver {
-    double as = 0.2;
+    double asMZ = 0.2;
     double eps = 1e-7;
     int Nint; // kT nodes in Nintegral
     int N;// = 32*16 + 1; //must be 2*n+1
@@ -151,6 +152,8 @@ struct Solver {
     bool putZero = false;
 
     Nodes nod, nodBase;
+
+    double alphaS(double l, double lp);
     
     Solver(int N_) : Nint(1*(N_-1)+1), N(N_),
         nod(Nint, Lmin, Lmax), nodBase(N, Lmin, Lmax) {
@@ -168,7 +171,7 @@ struct Solver {
         bool bkSolverGrid;
         try {
 
-            as = tree.get<double>("Constants.alphaS");
+            asMZ = tree.get<double>("Constants.alphaS");
             eps = tree.get<double>("Constants.eps");
             mu2 = tree.get<double>("Constants.mu2");
             //Rapidity properties
@@ -214,6 +217,10 @@ struct Solver {
         nod.CalcNodes(bkSolverGrid);
         nodBase.CalcNodes(bkSolverGrid);
         tie(redMat,extMat) = GetTransMatrices(N, Nint, toTrivial);
+
+        alphaSpline::FixMasses( 1e-8, 1e20,	1e21);
+        alphaSpline::FixParameters(2, asMZ, 4, 91.2);
+        //cout << "Radek " << alphaSpline::alphaS(2*log(91.2))<< endl;
 
     }
     Solver(std::istream &Stream)  { Init(Stream);  }

@@ -81,10 +81,10 @@ int main(int argc, char **argv)
     auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
     //return 0;
 
-    Fitter fitter(cin);
-    fitter.Init();
-    MPI_Finalize();
-    return 0;
+    //Fitter fitter(cin);
+    //fitter.Init();
+    //MPI_Finalize();
+    //return 0;
 
 
 
@@ -98,19 +98,19 @@ int main(int argc, char **argv)
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         return kT2 * exp(-kT2);// * pow(max(0., 0.4-x), 2);
     });
-    sol512.SetSolution([](double x, double kT2) {
 
-        return 1./(1 + sqrt(kT2))/x;
-
-            });
+    //sol512.SetSolution([](double x, double kT2) {
+        //return 1./(1 + sqrt(kT2))/x;
+        //return sqrt(x)*(1-x)/(1 + sqrt(kT2));
+            //});
 
     sol512.LoadConvKernels("data/kernel");
-    sol512.CalcF2L();
 
     cout << "Weights calculated " << endl;
-    //sol512.InitMat();
-    //sol512.EvolveNew();
+    sol512.InitMat();
+    sol512.EvolveNew();
 
+    sol512.CalcF2L();
 
     cout << "Done " << endl;
     if(GetRankSize().first == 0) {
