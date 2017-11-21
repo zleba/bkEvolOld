@@ -201,6 +201,7 @@ void Solver::EvolveNew()
     //Classical approach
     if(start == 0) {
         arma::mat MatEq = arma::mat(N,N,arma::fill::eye) -  matNDiag.slice(0);
+        cout << "Is put Zero " << putZero << endl;
         if(putZero) {
             PhiRapN[0] = arma::vec(N, arma::fill::zeros);
         }

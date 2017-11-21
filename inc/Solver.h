@@ -149,7 +149,9 @@ struct Solver {
     //const double Lmin= log(1e-4), Lmax = log(1e8);
     double mu2 = 1e-2;
     double rapMax = log(1e6), rapMin = log(1);
-    bool putZero = false;
+    bool putZero = true;
+
+    string inputDir, outputDir;
 
     Nodes nod, nodBase;
 
@@ -187,6 +189,9 @@ struct Solver {
             Lmax = log( tree.get<double>("TransverseSpace.kT2Max") );
             bkSolverGrid = tree.get<bool>("TransverseSpace.bkSolverGrid");
             toTrivial = tree.get<bool>("TransverseSpace.toTrivial");
+
+            inputDir  = tree.get<string>("Files.inputDir");
+            outputDir = tree.get<string>("Files.outputDir");
             
         }
         catch(const std::exception& e) {
@@ -195,8 +200,8 @@ struct Solver {
             exit(1);
         }
 
-        assert( (N - 1) %2 == 0);
-        assert( (Nint - 1) %2 == 0);
+        assert((N - 1) %2 == 0);
+        assert((Nint - 1) %2 == 0);
 
 
         cout << "Used evolution parameters" << endl;
@@ -218,8 +223,8 @@ struct Solver {
         nodBase.CalcNodes(bkSolverGrid);
         tie(redMat,extMat) = GetTransMatrices(N, Nint, toTrivial);
 
-        alphaSpline::FixMasses( 1e-8, 1e20,	1e21);
-        alphaSpline::FixParameters(2, asMZ, 4, 91.2);
+        alphaSpline::FixMasses( 1e-8, 4.2,	1e21);
+        alphaSpline::FixParameters(2, asMZ, 5, 91.2);
         //cout << "Radek " << alphaSpline::alphaS(2*log(91.2))<< endl;
 
     }
@@ -296,20 +301,22 @@ struct Solver {
     void SetSolution(function<double(double, double)> fun);
 
     void SaveEvolKernels(string file) {
-        matN.save(file+"_base.h5", arma::hdf5_binary);
-        matNDiag.save(file+"_diag.h5", arma::hdf5_binary);
-        matNInv.save(file+"_inv.h5", arma::hdf5_binary);
+        //string aStag = to_string(1000*asMZ);
+        file += "_as"+ to_string(lrint(1000*asMZ));
+        cout << "Saving Evol Kernels to " << file << endl;
+        matN.save(file+"/kernel_base.h5", arma::hdf5_binary);
+        matNDiag.save(file+"/kernel_diag.h5", arma::hdf5_binary);
+        matNInv.save(file+"/kernel_inv.h5", arma::hdf5_binary);
     }
     void LoadEvolKernels(string file) {
-        matN.load(file+"_base.h5", arma::hdf5_binary);
-        matNDiag.load(file+"_diag.h5", arma::hdf5_binary);
-        matNInv.load(file+"_inv.h5", arma::hdf5_binary);
+        matN.load(file+"/kernel_base.h5", arma::hdf5_binary);
+        matNDiag.load(file+"/kernel_diag.h5", arma::hdf5_binary);
+        matNInv.load(file+"/kernel_inv.h5", arma::hdf5_binary);
     }
 
-
     void LoadConvKernels(string file) {
-        assert(convF2.load("data/conv_F2.h5", arma::hdf5_binary));
-        assert(convFL.load("data/conv_FL.h5", arma::hdf5_binary));
+        assert(convF2.load(file+"/conv_F2.h5", arma::hdf5_binary));
+        assert(convFL.load(file+"/conv_FL.h5", arma::hdf5_binary));
 
         //MPI_Bcast(convF2.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         //MPI_Bcast(convFL.memptr(), convF2.n_elem, MPI_DOUBLE, 0, MPI_COMM_WORLD);

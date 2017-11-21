@@ -27,7 +27,7 @@ class Fitter {
     vector<dataPoint> LoadData(string fname);
 
     void AddTheory(vector<arma::vec> &f2, vector<arma::vec> &fl);
-    void Init();
+    void Init(string dirName);
 
     double getChi2(int &nDF);
     double operator()(const double *p, const double *q);

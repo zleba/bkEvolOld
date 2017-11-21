@@ -8,8 +8,10 @@
 #include <gsl/gsl_multimin.h>
 
 #include "TF2.h"
+#include "TMinuit.h"
 
-//Fitter *fitter;
+
+Fitter *glFitter;
 
 
 vector<dataPoint> Fitter::LoadData(string fname)
@@ -80,21 +82,59 @@ my_f (const gsl_vector *v, void *params)
         //p[3] * (y - p[1]) * (y - p[1]) + p[4]; 
 }
 
+void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *p, Int_t iflag)
+{
+        npar = 3;
+        f = glFitter->Eval(p);
+}
 
 
 
 
 
-void Fitter::Init()
+
+
+void Fitter::Init(string dirName)
 {
     //Load data points
     data = LoadData("test/heraTables/HERA1+2_NCep_920.dat");
 
     //Load evoluton and convolution matrices
     //sol512.InitMat();
-    solver.LoadEvolKernels("data/kernel");
+    solver.LoadEvolKernels(dirName);
 
-    solver.LoadConvKernels("data/kernel");
+    solver.LoadConvKernels(dirName);
+
+
+    //New game
+
+    glFitter = this;
+
+    TMinuit *gMinuit = new TMinuit(3);  //initialize TMinuit with a maximum of 5 params
+    gMinuit->SetFCN(fcn);
+    int ierflg = 0;
+    double arglist[10];
+    arglist[0] = 1;
+    gMinuit->mnexcm("SET ERR", arglist ,1,ierflg);
+
+    //static Double_t vstart[2] = {4.62153e+01, 3.69297e+00}; Old variant
+    //static Double_t vstart[3] = {357.855, 6.23351, 1.86848};// New variant
+    static Double_t vstart[3] = {-128.786, -184.162, -71.7185};// Tchebyshev fit
+
+
+    //static Double_t vstart[2] = {3, 1 };
+    static Double_t step[3] = {0.1 , 0.1, 0.1 };
+    gMinuit->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
+    gMinuit->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    gMinuit->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+
+    arglist[0] = 1500;
+    arglist[1] = 1.;
+    gMinuit->mnexcm("MIGRAD", arglist ,2,ierflg);
+
+    cout << "Success" << endl;
+
+    return;
 
 
     //CalculateBasis(40, "basis.dat");
@@ -124,6 +164,7 @@ void Fitter::Init()
 
 
                 
+    cout << "Helenka " << __LINE__ << endl;
 
     //TF2 *fun = new TF2("function", *this, 0.0, 1.0, 0.001, 10);
     //TF2 * fun = new TF2("fun",[&](double*x, double *q){int n; return getChi2(n); }, 0, 1, 0.0001, 10);
@@ -161,12 +202,33 @@ void Fitter::Init()
 
     /* Starting point */
 
-    int nPar = 4;
-    x = gsl_vector_alloc (nPar);
 
     vector<double> p;
     //p[0]=3.60325e-06; p[1]=0.0627581;
-    p = {1e-4, 0, 0, 0};
+    //p = {1e-2, 0, 5, 0, 0.1, 0.5};
+
+    //p = {13.3794, -6.7348, 5.05507, 1.19013, 4.70995, 1.39788,};
+    //p = {11.8021, -5.97259, 1.8291, 3.60356, 5.13523, 1.24874,};
+    //p = {11.7143, -6.24427, 0.0518992, 2.73242, 4.89552, 1.2672,};
+    //p = {78.9713, -5.52102, 1e-7, 3.00587, 5.20282, 1.70011,};
+    //p = {80.0684, -5.44104, 7.45582e-08, 3.01449, 5.23708, 1.70187,};
+    //p = {80.1451, -5.44868, -2.29646e-06, 3.0168, 5.23553, 1.70169,};//for aS = 0.1118
+
+    //p = {80.1505, -5.39695, -5.42062e-06, 2.99661, 5.27126, 1.70571,}; //for Krystof org
+    //p = {46.1936, 3.69189}; //for Krystof - simple p0*kT2*exp(-p1*kT2)
+    //p = {251.778, 5.77694, 1.71978}; //for Krystof - simple p0*kT2*exp(-p1*kT2)
+
+
+
+    //p = {80.1505, +1.39695, -5.42062e-06, 0.39661, 5.27126, 1.70571,}; //for Krystof corr
+    p = {80.12, -7.72392, -0.037154, 4.1288, 3.19872, 2.33265,};
+
+
+    //p = {79.1046, -3.75694, 4.48014e-08, 3.06169, 8.21893, 1.64082,};//for aS = 0.118
+
+    //p = {11.7357, -6.22287, 0.156637, 2.74329, 4.91692, 1.26597,};
+
+
     //p[0]=-9.58527, p[1]=7.06043; p[2]= -11.3249;
     //p[0]=-11.2986, p[1]=4.75103; p[2] =  -9.05604; p[3] =  -0.800283;
     //p[0]=-11.2544; p[1]=4.05222; p[2] = -7.91101; p[3] =  -0.798476;
@@ -176,18 +238,23 @@ void Fitter::Init()
     //p[0]=-0.5853; p[1]=5.02503; p[2] = -7.37439; p[3] =  -1.3508;
 
     //p[0]=0.268914; p[1]=8.01361; p[2]= -26.609; p[3] =  1.87533;
-    p[0]=0.264653; p[1]=-3.19877; p[2] = -8.82977; p[3] = 0.398698;
+
+    //p[0]=0.264653; p[1]=-3.19877; p[2] = -8.82977; p[3] = 0.398698;
 
     //Eval(p.data());
     //return;
+
+    int nPar = p.size();
+    x = gsl_vector_alloc (nPar);
 
     for(int i = 0; i < nPar; ++i)
         gsl_vector_set (x, i, p[i]);
 
     /* Set initial step sizes to 1 */
     ss = gsl_vector_alloc (nPar);
-    gsl_vector_set_all (ss, 2);
-    gsl_vector_set(ss,3, 0.2);
+    //gsl_vector_set_all (ss, 0.2);
+    gsl_vector_set_all (ss, 0.7);
+    //gsl_vector_set(ss, 2, 0.2);
 
 
     /* Initialize method and iterate */
@@ -196,7 +263,9 @@ void Fitter::Init()
     minex_func.params = this;
 
     s = gsl_multimin_fminimizer_alloc (T, nPar);
+    cout << "Helenka start" << __LINE__ << endl;
     gsl_multimin_fminimizer_set (s, &minex_func, x, ss);
+    cout << "Helenka end" << __LINE__ << endl;
 
     do
     {
@@ -222,7 +291,7 @@ void Fitter::Init()
                 gsl_vector_get (s->x, 1), 
                 s->fval, size);
     }
-    while (status == GSL_CONTINUE && iter < 200);
+    while (status == GSL_CONTINUE && iter < -1000);
 
     gsl_vector_free(x);
     gsl_vector_free(ss);
@@ -233,20 +302,52 @@ void Fitter::Init()
 
 double Fitter::Eval(const double *p)
 {
-    cout << "Matrix initialised" << endl;
+    //cout << "Matrix initialised" << endl;
     solver.InitF([=](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
-        //return p[0]*kT2 * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
-        return exp(p[0] + p[1]*log(kT2) + p[2]*pow(log(kT2),2) + p[3]*pow(log(kT2),3) );
+
+        //return p[0]*kT2 * exp(-p[1]*kT2);
+
+        //return p[0]*pow(kT2,p[2]) * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
+
+        //return exp(p[0] + p[1]*log(kT2) + p[2]*pow(log(kT2),2) + p[3]*pow(log(kT2),3) );
+        //return p[0] * pow(kT2,p[1]) * pow(1-x,abs(p[2])) * max(0.,1-p[3]*x) * exp(-p[4]*pow(log(kT2/p[5]),2));
+
+
+        const double minkT2 = 1e-2;
+        const double maxkT2 = 1e6;
+        double y = -1 + 2.*(log(kT2) - log(minkT2)) / (log(maxkT2)-log(minkT2));
+        double c0 = 1;
+        double c1 = y;
+        double c2 = 2*y*y - 1;
+
+        return exp(p[0]*c0 + p[1]*c1 + p[2]*c2);
+
     });
     solver.EvolveNew();
     AddTheory(solver.F2rap, solver.FLrap);
     int nDF;
     double chi2 = getChi2(nDF);
 
-    cout << "For parameters p[0]=" << p[0]<<", p[1]="<<p[1] <<" "<< p[2] <<" "<< p[3]<< endl;
+    //cout << "For parameters p[0]=" << p[0]<<", p[1]="<<p[1] <<" "<< p[2] <<" "<< p[3]<< endl;
+    cout << "p = {" << p[0]<<", "<<p[1] <<", "<< p[2] <<", "<< p[3]<< ", "<<p[4]<< ", " << p[5]<<",}; "<< endl;
     cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
+
+
+    if(1) {
+        //Save result
+        arma::field<arma::mat> storage(1, 4);
+        storage(0, 0) = Solver::vector2matrix(solver.PhiRapN);
+        storage(0, 1) = Solver::vector2matrix(solver.F2rap);
+        storage(0, 2) = Solver::vector2matrix(solver.FLrap);
+        storage(0, 3) = Fitter::getPoints();
+
+        storage.save("fitTheb.dat");
+        exit(0);
+    }
+
+
 
     if(isfinite(chi2))
         return chi2;
@@ -336,10 +437,10 @@ double Fitter::getChi2(int &nDF)
     double chi2 = 0;
     nDF = 0;
     for(auto &p : data) {
-        if(p.x > 0.01 || p.Q2 < 4) continue;
+        if(p.x > 0.01 || p.Q2 < 4 || p.Q2 > 1200) continue;
 
         chi2 += pow((p.sigma - p.theor) / (p.err*p.sigma*1e-2), 2);
-        cout << p.Q2 <<" "<< p.x <<" : "<< p.sigma <<" "<< p.theor << endl;
+       // cout << p.Q2 <<" "<< p.x <<" : "<< p.sigma <<" "<< p.theor << endl;
         ++nDF;
     }
     return chi2;
