@@ -9,8 +9,51 @@
 #include <set>
 #include <armadillo>
 #include <random>
+#include <string>
+#include "alphaSpline.h"
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+
 
 using namespace std;
+
+struct SETTINGS {
+    double asMZ = 0.2;
+    int N;// = 32*16 + 1; //must be 2*n+1
+    int Nrap = 1024;
+
+    double Lmin= log(1e-2), Lmax = log(1e6);
+    double rapMax = log(1e6), rapMin = log(1);
+    string inputDir, outputDir;
+
+    void Init(istream &Stream) {
+        boost::property_tree::ptree tree;
+        boost::property_tree::ini_parser::read_ini(Stream, tree);
+
+        try {
+
+            asMZ = tree.get<double>("Constants.alphaS");
+            //Rapidity properties
+            Nrap = tree.get<int>("RapiditySpace.Nrap");
+            rapMax = -log( tree.get<double>("RapiditySpace.xMin") );
+            rapMin = -log( tree.get<double>("RapiditySpace.xMax") );
+
+            //Transverse properties
+            N = tree.get<int>("TransverseSpace.NkT2");
+            Lmin = log( tree.get<double>("TransverseSpace.kT2Min") );
+            Lmax = log( tree.get<double>("TransverseSpace.kT2Max") );
+
+            inputDir  = tree.get<string>("Files.inputDir");
+            outputDir = tree.get<string>("Files.outputDir");
+        } catch(const std::exception& e) {
+            cout << "Some of parameters in steering not defined:" << endl;
+            cout << e.what() << endl;
+            exit(1);
+        }
+
+    }
+} Settings;
 
 inline double pow2(double x) {return x*x;}
 
@@ -89,22 +132,22 @@ struct Kernel {
 
 
 
+//const double as = 0.2;
 
 
+double alphaS (double k, double p, double mq2)
+{
+    double sc2 = max(1.0, k*k + p*p + mq2);
+    double as = alphaSpline::alphaS(log(sc2), 4);
+
+    //cout <<"HuHu "<< alphaSpline::alphaS(2*log(91.1), 4) << " "<< alphaSpline::alphaS(2*log(91.1), 5) << " "<< endl;
+    //cout <<"Hela "<< alphaSpline::alphaS(2*log(4.2-1e-6)) << " "<< alphaSpline::alphaS(2*log(4.2+1e-6)) << " "<< endl;
+    //cout << "alphaVal= " << alphaSpline::alphaS(2*log(91.1)) << endl;
+    return as;
+}
 
 
-
-
-
-
-
-
-
-const double as = 0.2;
-
-
-const double Lmin= log(1e-2), Lmax = log(1e6);
-
+//const double Lmin= log(1e-2), Lmax = log(1e6);
 
 
 vector<double> GetNodes(int n, double a, double b)
@@ -122,6 +165,9 @@ vector<double> GetNodes(int n, double a, double b)
 struct Integrator {
     vector<vector<double>> kNodes, cosPhiNodes;
     vector<vector<double>> kWeights, phiWeights;
+
+    const double Lmin, Lmax;
+    Integrator() :  Lmin(Settings.Lmin), Lmax(Settings.Lmax) { }
 
     void Init() {
         double precMax = 12;
@@ -155,15 +201,19 @@ struct Integrator {
 
 
         double FT=0, FL=0;
-        for(int i = 0; i < kNodes[o1].size(); ++i)
-        for(int j = 0; j < cosPhiNodes[o2].size(); ++j) {
+        for(int i = 0; i < kNodes[o1].size(); ++i) {
+            double FTnow=0, FLnow=0;
             double k = kNodes[o1][i];
-            double cosPhi = cosPhiNodes[o2][j];
-            double w = kWeights[o1][i] * phiWeights[o2][j];
-            double ft, fl; 
-            tie(ft, fl) = kern.Integrand(k, cosPhi);
-            FT += ft*w; FL += fl*w;
-            //FT += w*k*k; FL += w*k*k*k*k;
+            for(int j = 0; j < cosPhiNodes[o2].size(); ++j) {
+                double cosPhi = cosPhiNodes[o2][j];
+                double w = kWeights[o1][i] * phiWeights[o2][j];
+                double ft, fl; 
+                tie(ft, fl) = kern.Integrand(k, cosPhi);
+                FTnow += ft*w; FLnow += fl*w;
+                //FT += w*k*k; FL += w*k*k*k*k;
+            }
+            double as = alphaS(k, kern.p, m2);
+            FT += as*FTnow; FL += as*FLnow;
         }
 
         double Kphi = 1./2; //average over angle
@@ -236,7 +286,7 @@ pair<double,double> Kernel::GetBeta(double z, double k, double cosPhi)
     }
 }
 
-//function of k
+//function of k, without aS!
 pair<double,double> Kernel::MainTerm(double beta, double k, double cosPhi)
 {
     double k2 = k*k;
@@ -256,7 +306,14 @@ pair<double,double> Kernel::MainTerm(double beta, double k, double cosPhi)
     double FL = 4*Q2*pow2(beta*(1-beta)) * r1;
 
     //Overall constant
-    double fact = as*eq2*Q2/(4*M_PI) * k2;
+    //static map<double,double> pMap, kMap;
+    //++pMap[p];
+    //++kMap[k];
+
+    //if(rand() % 1000 == 0)
+        //cout <<"Maps " <<  pMap.size() <<" "<< kMap.size() << endl;
+
+    double fact = eq2*Q2/(4*M_PI) * k2;
 
 
 
@@ -360,14 +417,17 @@ vector<double> GetWeights(int Size)
 
 void CalculateGrid(string fname, int qid)
 {
-    const int Nrap = 1024;
-    const int N = 512+1;
+    const int Nrap = Settings.Nrap;
+    const int N = Settings.N; //N points in kT2
 
     int N2id = log2(N-1);
     assert(pow(2,N2id)+1 == N);
 
-    const double Lmin= log(1e-2), Lmax = log(1e6);
-    const double rapMax = log(1e6), rapMin = log(1);
+    //const double Lmin= log(1e-2), Lmax = log(1e6);
+    //const double rapMax = log(1e6), rapMin = log(1);
+
+    const double Lmin = Settings.Lmin, Lmax = Settings.Lmax;
+    const double rapMax = Settings.rapMax, rapMin = Settings.rapMin;
 
     vector<double> Q2data =  LoadData(fname);
     int nQ2 = Q2data.size();
@@ -401,8 +461,10 @@ void CalculateGrid(string fname, int qid)
                 double p = quad.kNodes[N2id][i];
                 //cout << i <<" "<< p << endl;
 
-                auto resL =  quad.GetIntegral(9, 7, z, Q2, p*p, mL2, eL2);
-                auto resC =  quad.GetIntegral(9, 7, z, Q2, p*p, mC2, eC2);
+                //auto resL =  quad.GetIntegral(5, 5, z, Q2, p*p, mL2, eL2);
+                //auto resC =  quad.GetIntegral(5, 5, z, Q2, p*p, mC2, eC2);
+                auto resL =  quad.GetIntegral(8, 7, z, Q2, p*p, mL2, eL2);
+                auto resC =  quad.GetIntegral(8, 7, z, Q2, p*p, mC2, eC2);
                 //auto resC = make_pair(0.,0.);
 
                 conF2( i, y) = (resL.first + resC.first) + (resL.second + resC.second);
@@ -437,6 +499,13 @@ int main(int argc, char **argv)
     //return 0;
     assert(argc == 2);
     int qid = stoi(argv[1]);
+
+    Settings.Init(cin);
+
+    double asMZ = Settings.asMZ;
+    alphaSpline::FixMasses( 1e-8, 4.2,	1e21);
+    alphaSpline::FixParameters(2, asMZ, 5, 91.2);
+
     CalculateGrid("/afs/desy.de/user/z/zlebcr/h1/TMD/Krakow/bkEvol/test/heraTables/HERA1+2_NCep_920.dat", qid);
 
     return 0;

@@ -4,9 +4,11 @@
 
 using namespace std;
 
-void MergeFiles(string name)
+void MergeFiles(string address, string name)
 {
-    string address = "/nfs/dust/cms/user/zlebcr/Krakow/convMat/";
+    address += '/';
+    //string address = "/nfs/dust/cms/user/zlebcr/Krakow/convMat/";
+
     //string name= "hoho";
     int nQ2 = 46;
 
@@ -28,14 +30,17 @@ void MergeFiles(string name)
 
     }
     convCube.save(address+name+".h5", arma::hdf5_binary);
+    cout <<"Saving to " << address+name+".h5" << endl;
 }
 
 
 
-int main()
+int main(int argc, char **argv)
 {
-    MergeFiles("conv_F2");
-    MergeFiles("conv_FL");
+    string address = argv[1];
+
+    MergeFiles(address, "conv_F2");
+    MergeFiles(address, "conv_FL");
 
 
 
