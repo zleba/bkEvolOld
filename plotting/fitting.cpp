@@ -467,8 +467,11 @@ struct LinearFitter {
 };
 
 
-int main()
+int main(int argc, char **argv)
 {
+    assert(argc == 2);
+    string tag = argv[1];
+    cout << "Tag is " << tag << endl;
     
     LinearFitter lfitter;
     //for(int k = 3; k < 11; ++k) {
@@ -476,7 +479,9 @@ int main()
         //lfitter.Load("../basis.dat", k);
         //lfitter.Load("../fitTestAdv.dat", k);
         //lfitter.Load("../fitSolNew.dat", k);
-        lfitter.Load("../fitTheb.dat", k);
+        //lfitter.Load("../fitTheb.dat", k);
+        lfitter.Load("../automate/fit2Parm_" + tag + ".dat", k);
+
         //return 0;
         lfitter.getMinimum();
         cout <<k<<" "<< lfitter.getChi2() << " / " << lfitter.getNdf()<< endl;
@@ -487,13 +492,14 @@ int main()
     //lfitter.PrintPDF();
 
     lfitter.PrintDistrib("GluonPDF.pdf");
-    lfitter.PrintInputCond("inputPDF.pdf");
+
+    //lfitter.PrintInputCond("inputPDF.pdf");
     //return  0;
 
     int first = 0;
     int last = 46;
 
-    TString outF = "sigmaRed.pdf";
+    TString outF = "sigmaRed_"+tag+".pdf";
 
     for(int i = first; i < last; ++i) {
         if     (i==first)  lfitter.PrintPDF(i, outF+"(");

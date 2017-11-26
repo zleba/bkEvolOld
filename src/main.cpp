@@ -81,12 +81,13 @@ int main(int argc, char **argv)
     auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
     //return 0;
 
-    /*
+
     Fitter fitter(cin);
-    fitter.Init("data");
+    cout << "I am here radek " << endl;
+    fitter.Init("data/eq8");
     MPI_Finalize();
     return 0;
-    */
+
 
 
 

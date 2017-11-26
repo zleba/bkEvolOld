@@ -18,6 +18,13 @@ vector<dataPoint> Fitter::LoadData(string fname)
 {
     vector<dataPoint> points;
     ifstream file(fname);
+    if (!file.good())
+    {
+        cout << "File " << fname << " cant be open." << endl;
+        assert(0);
+    }
+
+
     char s[2000];
     file.getline(s,1990);
     file.getline(s,1990);
@@ -84,7 +91,8 @@ my_f (const gsl_vector *v, void *params)
 
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *p, Int_t iflag)
 {
-        npar = 3;
+        //npar = 3;
+        npar = Settings::I().nPar;
         f = glFitter->Eval(p);
 }
 
@@ -97,20 +105,20 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *p, Int_t iflag)
 void Fitter::Init(string dirName)
 {
     //Load data points
-    data = LoadData("test/heraTables/HERA1+2_NCep_920.dat");
+    data = LoadData("/home/zlebcr/prog/bkEvol/test/heraTables/HERA1+2_NCep_920.dat");
 
     //Load evoluton and convolution matrices
     //sol512.InitMat();
     solver.LoadEvolKernels(dirName);
-
     solver.LoadConvKernels(dirName);
+
 
 
     //New game
 
     glFitter = this;
 
-    TMinuit *gMinuit = new TMinuit(3);  //initialize TMinuit with a maximum of 5 params
+    TMinuit *gMinuit = new TMinuit(Settings::I().nPar+1);  //initialize TMinuit with a maximum of 5 params
     gMinuit->SetFCN(fcn);
     int ierflg = 0;
     double arglist[10];
@@ -119,20 +127,57 @@ void Fitter::Init(string dirName)
 
     //static Double_t vstart[2] = {4.62153e+01, 3.69297e+00}; Old variant
     //static Double_t vstart[3] = {357.855, 6.23351, 1.86848};// New variant
-    static Double_t vstart[3] = {-128.786, -184.162, -71.7185};// Tchebyshev fit
+    //static Double_t vstart[3] = {-128.786, -184.162, -71.7185};// Tchebyshev fit
+
+    //static Double_t vstart[2] = {46, 3};// new hope
+    //static Double_t vstart[2] = { 12.4613, 1.86526}; //  667.186, 14.3659,};
+
+    //New play
+    //static Double_t vstart[1] = { 12.4613}; //  667.186, 14.3659,};
+//p = {667.269, 14.3668, 0, 0, 0, 0,}; 
+//Chi2 is 1080.85 / 180
+    //static Double_t vstart[2] = { 3, -3}; //  667.186, 14.3659,};
+    static Double_t vstart[3] = {-21.9568, 2.488, 11.6075};
 
 
+
+
+
+    /*
     //static Double_t vstart[2] = {3, 1 };
-    static Double_t step[3] = {0.1 , 0.1, 0.1 };
-    gMinuit->mnparm(0, "a1", vstart[0], step[0], 0,0,ierflg);
-    gMinuit->mnparm(1, "a2", vstart[1], step[1], 0,0,ierflg);
+    static Double_t step[3] = {0.1 , 0.1, 0.1};
+    gMinuit->mnparm(0, "a1", vstart[0], step[0], -40,1000,ierflg);
+    gMinuit->mnparm(1, "a2", vstart[1], step[1], -40,1000,ierflg);
     gMinuit->mnparm(2, "a3", vstart[2], step[2], 0,0,ierflg);
+    */
+
+    auto &S = Settings::I();
+    for(int i = 0; i < S.nPar; ++i) {
+        gMinuit->mnparm(i, "p"+to_string(i), get<0>(S.pars[i]),  0.1,  get<1>(S.pars[i]),  get<2>(S.pars[i]), ierflg);
+    }
 
     arglist[0] = 1500;
     arglist[1] = 1.;
     gMinuit->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     cout << "Success" << endl;
+    cout << "Saving results" << endl;
+
+    if(1) {
+        //Save result
+        arma::field<arma::mat> storage(1, 4);
+        storage(0, 0) = Solver::vector2matrix(solver.PhiRapN);
+        storage(0, 1) = Solver::vector2matrix(solver.F2rap);
+        storage(0, 2) = Solver::vector2matrix(solver.FLrap);
+        storage(0, 3) = Fitter::getPoints();
+
+        string nTag = to_string(lrint(1000*solver.asMZ));
+        storage.save("fit2Parm_" + nTag + ".dat");
+        exit(0);
+    }
+
+
+
 
     return;
 
@@ -302,12 +347,17 @@ void Fitter::Init(string dirName)
 
 double Fitter::Eval(const double *p)
 {
+    auto fun = Settings::I().fitFun;
     //cout << "Matrix initialised" << endl;
     solver.InitF([=](double x, double kT2) {
         //return pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
         //return 1./pow(kT2,1);// pow(1.0/sqrt(kT2) * exp(-pow(log(kT2/(1.*1.)),2)), 4);
 
-        //return p[0]*kT2 * exp(-p[1]*kT2);
+        //return p[0]*kT2 * exp(-abs(p[1])*kT2);
+
+        //return kT2 * exp(-abs(p[0])*kT2);
+
+        return fun(kT2, x, p);
 
         //return p[0]*pow(kT2,p[2]) * exp(-p[1]*kT2);// * pow(max(0., 0.4-x), 2);
 
@@ -315,27 +365,31 @@ double Fitter::Eval(const double *p)
         //return p[0] * pow(kT2,p[1]) * pow(1-x,abs(p[2])) * max(0.,1-p[3]*x) * exp(-p[4]*pow(log(kT2/p[5]),2));
 
 
+        /*
         const double minkT2 = 1e-2;
         const double maxkT2 = 1e6;
         double y = -1 + 2.*(log(kT2) - log(minkT2)) / (log(maxkT2)-log(minkT2));
         double c0 = 1;
         double c1 = y;
         double c2 = 2*y*y - 1;
+        */
 
-        return exp(p[0]*c0 + p[1]*c1 + p[2]*c2);
+        //double L = log(kT2);
+        //return exp(p[0]*L + p[1]*L*L) * pow(1-x, abs(p[2]));
+
 
     });
     solver.EvolveNew();
     AddTheory(solver.F2rap, solver.FLrap);
     int nDF;
-    double chi2 = getChi2(nDF);
+    double chi2 = getChi2Corr(nDF);
 
     //cout << "For parameters p[0]=" << p[0]<<", p[1]="<<p[1] <<" "<< p[2] <<" "<< p[3]<< endl;
     cout << "p = {" << p[0]<<", "<<p[1] <<", "<< p[2] <<", "<< p[3]<< ", "<<p[4]<< ", " << p[5]<<",}; "<< endl;
     cout << "Chi2 is " <<chi2<< " / "<< nDF << endl;
 
 
-    if(1) {
+    if(0) {
         //Save result
         arma::field<arma::mat> storage(1, 4);
         storage(0, 0) = Solver::vector2matrix(solver.PhiRapN);
@@ -428,9 +482,80 @@ void Fitter::AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
        double yTerm = p.y*p.y/(1+(1-p.y)*(1-p.y));
        double sRed = f2 - yTerm * fl;
 
-       p.theor = sRed;
+       p.theor0 = sRed;
+       p.theor  = sRed;
     }
 }
+
+
+
+//Chi2 with correction for the extra term
+double Fitter::getChi2Corr(int &nDF)
+{
+    auto Cond = [](double x, double Q2) {return x < 0.01 && Q2 > 4 && Q2 < 1200; };
+
+
+    double A11, A12, A22; 
+    double r1, r2;
+    A11 = A12 = A22 = 0;
+    r1 = r2 = 0;
+
+    for(auto &p : data) {
+        if(!Cond(p.x, p.Q2)) continue; 
+
+        const double a = -0.08;
+        const double b =  8;
+        p.extra0 = pow(p.x, a) * pow(1 - p.x, b);
+
+        double Vinv = pow(p.err*p.sigma*1e-2, -2);
+
+        A11 += p.theor0*p.theor0 * Vinv;
+        A12 += p.theor0*p.extra0 * Vinv;
+        A22 += p.extra0*p.extra0 * Vinv;
+
+        r1 += p.sigma * p.theor0 * Vinv;
+        r2 += p.sigma * p.extra0 * Vinv;
+
+    }
+
+    double Disc = A11*A22 - A12*A12;
+    double D1 = r1*A22 - r2*A12;
+    double D2 = A11*r2 - r1*A12;
+    double c1, c2;
+    if(Disc != 0) {
+        c1 = D1 / Disc;
+        c2 = D2 / Disc;
+    }
+    else {
+        c1 = r1 / A11;
+        c2 = 0;
+        //cout << "Is my case!!!" << endl;
+    }
+
+    double chi2 = 0;
+    double hardSum = 0;
+    double softSum = 0;
+    nDF = 0;
+    for(auto &p : data) {
+        if(!Cond(p.x, p.Q2)) continue; 
+
+        double Vinv = pow(p.err*p.sigma*1e-2, -2);
+        p.theor = c1 * p.theor0 + c2 * p.extra0;
+
+        hardSum += c1 * p.theor0;
+        softSum += c2 * p.extra0;
+
+        chi2 += pow(p.sigma - p.theor, 2) * Vinv;
+        //cout << p.Q2 <<" "<< p.x <<" : "<< p.sigma <<" "<< p.theor << endl;
+        ++nDF;
+    }
+
+    cout << "Soft fraction " << softSum / (softSum + hardSum) << endl;
+
+    return chi2;
+
+}
+
 
 double Fitter::getChi2(int &nDF)
 {

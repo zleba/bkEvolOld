@@ -62,8 +62,7 @@ double GetAngle(double l, double lp, double cond)
 
 double Solver::alphaS(double l, double lp)
 {
-    const double fixTr = 1; // in GeV
-    double LnQ2 = max(2*log(l), 2*log(fixTr)); //Currently select l as scale
+    double LnQ2 = max(2*log(l), LnFreeze2); //Currently select l as scale
 
     return alphaSpline::alphaS(LnQ2, 4) * 3./M_PI;
 }

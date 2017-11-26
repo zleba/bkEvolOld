@@ -14,6 +14,7 @@ struct dataPoint {
 
     int q2ID;
     double theor;
+    double theor0, extra0;
 };
 
 class Fitter {
@@ -30,6 +31,7 @@ class Fitter {
     void Init(string dirName);
 
     double getChi2(int &nDF);
+    double getChi2Corr(int &nDF);
     double operator()(const double *p, const double *q);
     double Eval(const double *p);
 

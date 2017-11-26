@@ -16,8 +16,8 @@ CUDA=/usr/local/cuda-8.0/bin/nvcc
 	#g++ -g -O3 $(CFLAGS)  $^ $(LIBS) -lgsl -lgslcblas -fopenmp -o $@ 
 
 
-SRCS = src/Solver.cpp  src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp src/alphaSpline.cpp src/Spline.cpp
-OBJS = obj/Solver.o obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o obj/alphaSpline.o obj/Spline.o
+SRCS = src/Solver.cpp  src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp src/alphaSpline.cpp src/Spline.cpp  src/FunctionReader.cpp
+OBJS = obj/Solver.o obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o obj/alphaSpline.o obj/Spline.o obj/FunctionReader.o
 
 
 #obj/%.o: src/%.cpp inc/Solver.h inc/integration.h
@@ -30,7 +30,7 @@ iter: $(OBJS)
 	$(CC) -g  $^ $(LIBS) -lMinuit  -fopenmp   -Wl,-R$(armaLib) -L$(armaLib) -larmadillo -L/usr/local/cuda-8.0/targets/x86_64-linux/lib/ -lcudart  -lcublas  -lgsl -lgslcblas -lm   -o $@
 
 
-obj/%.o: src/%.cpp inc/Solver.h inc/integration.h inc/gpuBooster.h inc/Fitter.h
+obj/%.o: src/%.cpp inc/Solver.h inc/integration.h inc/gpuBooster.h inc/Fitter.h inc/Settings.h
 	$(CC) -g  -fopenmp  -I$(armaInc)   -I./inc  -I/usr/local/cuda-8.0/targets/x86_64-linux/include/   -c   -o $@ $< $(CFLAGS)
 
 obj/gpuBooster.o: src/gpuBooster.cxx

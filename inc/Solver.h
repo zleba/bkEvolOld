@@ -20,6 +20,8 @@
 
 #include "alphaSpline.h"
 
+#include "Settings.h"
+
 using namespace std;
 
 vector<double> GetWeights(int Size);
@@ -139,6 +141,7 @@ struct Nodes {
 
 struct Solver {
     double asMZ = 0.2;
+    double LnFreeze2 = 2*log(1);
     double eps = 1e-7;
     int Nint; // kT nodes in Nintegral
     int N;// = 32*16 + 1; //must be 2*n+1
@@ -167,6 +170,7 @@ struct Solver {
 
     void Init(std::istream &Stream) {
 
+        /*
         boost::property_tree::ptree tree;
         boost::property_tree::ini_parser::read_ini(Stream, tree);
 
@@ -174,6 +178,8 @@ struct Solver {
         try {
 
             asMZ = tree.get<double>("Constants.alphaS");
+            LnFreeze2 = 2*log(tree.get<double>("Constants.freezingScale"));
+
             eps = tree.get<double>("Constants.eps");
             mu2 = tree.get<double>("Constants.mu2");
             //Rapidity properties
@@ -193,6 +199,42 @@ struct Solver {
             inputDir  = tree.get<string>("Files.inputDir");
             outputDir = tree.get<string>("Files.outputDir");
             
+            //Fit Properties
+            string funStr = tree.get<string>("Fit.function");
+            bool isDone = false;
+            int nPar = 0;
+            for(int i = 0; i < 9; ++i)
+                if(funStr.find("p["+to_string(i)+"]") != string::npos) {
+                    ++nPar;
+                    if(isDone) {
+                        cout << "There is a gap between parameters" << endl;
+                        assert(0);
+                    }
+                }
+                else {
+                    isDone = true;
+                }
+            for(int i = 0; i < nPar; ++i) {
+                string par = tree.get<string>("Fit.p"+to_string(i));
+                istringstream iss(par);
+                vector<double> pars;
+                double pNow;
+                while(iss >> pNow) pars.push_back(pNow);
+                assert(pars.size() == 1 || pars.size() == 3);
+
+                double p, pmin, pmax;
+                p = pars[0];
+                pmin = pmax = 0;
+                if(pars.size() == 3) {
+                    pmin = pars[1];
+                    pmax = pars[2];
+                }
+
+                cout << "Reading parameter "<< i <<" : " << p << " "<< pmin << " "<< pmax << endl;
+                if(iss.good()) cout << "String is good " << p <<" "<< pmin <<" "<< pmax << endl;
+            }
+            exit(0);
+
         }
         catch(const std::exception& e) {
             cout << "Some of parameters in steering not defined:" << endl;
@@ -216,6 +258,31 @@ struct Solver {
         //exit(1);
 
         if(bkSolverGrid) assert(N == Nint);
+        */
+        Settings::I().Init(Stream);
+
+        auto &S = Settings::I();
+        asMZ = S.asMZ;
+        LnFreeze2 = S.LnFreeze2;
+        eps = S.eps;
+        Nint = S.Nint; // kT nodes in Nintegral
+        N = S.N;// = 32*16 + 1; //must be 2*n+1
+        Nrap = S.Nrap;
+        bool bkSolverGrid = S.bkSolverGrid;
+        toTrivial = S.toTrivial;
+
+        Lmin = S.Lmin;
+        Lmax = S.Lmax;
+        mu2 = S.mu2;
+        rapMax = S.rapMax;
+        rapMin = S.rapMin;
+
+        putZero = S.putZero;
+
+        inputDir = S.inputDir;
+        outputDir= S.outputDir;
+
+
 
         nod.Init(Nint, Lmin, Lmax);
         nodBase.Init(N, Lmin, Lmax);
