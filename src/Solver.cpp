@@ -198,7 +198,7 @@ void Solver::EvolveNew()
     }
 
 
-    bool doGPU = true;
+    //bool doGPU = true;
 #ifdef hasGPU
     if(!gpu.isInited) gpu.InitAll(matN, convF2, convFL);
     gpu.ResetVector();
@@ -238,7 +238,7 @@ void Solver::EvolveNew()
         //openMPI treatment
         int start=1, end;
 
-        #ifdef hasGPU //with GPU
+    #ifdef hasGPU //with GPU
             if(y > 1) {
                 gpu.ConvoluteAll(y);
                 //gpu.GetResult(y, yTemp);

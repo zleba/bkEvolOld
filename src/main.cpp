@@ -153,7 +153,7 @@ int main(int argc, char **argv)
     return 0;
     for(int i = 0; i < sol512.N; ++i) {
         const int Nnow = sol512.Nrap - 1;
-        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
+        cout << "Points " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
     }
 
 
@@ -167,6 +167,7 @@ int main(int argc, char **argv)
     cout << "Evolution done" << endl;
     //sol512.PrintGrid();
 
+    #if 0
 
     /*
     return 0;
@@ -189,7 +190,7 @@ int main(int argc, char **argv)
     for(int i = 0; i < sol512.N; ++i) {
         const int Nnow = sol512.Nrap - 1;
         gr512->SetPoint(i, exp(sol512.nod.xi[i]), sol512.PhiRapN[Nnow](i));
-        cout << "Haho " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
+        cout << "Points " <<  exp(0.5*sol512.nod.xi[i]) <<" "<< sol512.PhiRapN[Nnow](i) << endl;
     }
 
     return 0;
@@ -270,14 +271,13 @@ int main(int argc, char **argv)
     leg->Draw();
     
 
-    can->SaveAs("ahoj.pdf");
-
-
-
+    can->SaveAs("pdfs.pdf");
 
     return 0;
 
-#if 0
+    //Very old part
+
+//#if 0
 
     gsl_cheb_series *cs = gsl_cheb_alloc(10);
 
