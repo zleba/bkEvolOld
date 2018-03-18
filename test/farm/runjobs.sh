@@ -1,6 +1,6 @@
 address=/afs/desy.de/user/z/zlebcr/h1/TMD/Krakow/bkEvol/test/
 
-outputDir=/nfs/dust/cms/user/zlebcr/Krakow/storage/eq8
+outputDir=/nfs/dust/cms/user/zlebcr/Krakow/storage/eq8gen
 
 for fileFull in $outputDir/*
 do
@@ -20,7 +20,7 @@ echo "#$ -o $address/farm/out/${name}.out" >> $qsub_file
 echo "#$ -e $address/farm/err/${name}.err" >> $qsub_file
 
 echo "cd \$TMPDIR" >> $qsub_file
-echo "time $address/convol $i < $fileFull/config_${file}.ini " >> $qsub_file
+echo "time $address/convol $i < $fileFull/${file}.ini " >> $qsub_file
 #echo "$address/disc/a.out" >> $qsub_file
 
 

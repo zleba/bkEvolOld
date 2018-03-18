@@ -1,4 +1,4 @@
-outputDir=/nfs/dust/cms/user/zlebcr/Krakow/storage/eq8
+outputDir=/nfs/dust/cms/user/zlebcr/Krakow/storage/eq8gen
 
 for fileFull in $outputDir/*
 do

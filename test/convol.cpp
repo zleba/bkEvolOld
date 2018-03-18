@@ -20,12 +20,14 @@ using namespace std;
 
 struct SETTINGS {
     double asMZ = 0.2;
+    double freezingScale = 1;
     int N;// = 32*16 + 1; //must be 2*n+1
     int Nrap = 1024;
 
     double Lmin= log(1e-2), Lmax = log(1e6);
     double rapMax = log(1e6), rapMin = log(1);
     string inputDir, outputDir;
+    
 
     void Init(istream &Stream) {
         boost::property_tree::ptree tree;
@@ -34,6 +36,7 @@ struct SETTINGS {
         try {
 
             asMZ = tree.get<double>("Constants.alphaS");
+            freezingScale = tree.get<double>("Constants.freezingScale");
             //Rapidity properties
             Nrap = tree.get<int>("RapiditySpace.Nrap");
             rapMax = -log( tree.get<double>("RapiditySpace.xMin") );
@@ -137,7 +140,8 @@ struct Kernel {
 
 double alphaS (double k, double p, double mq2)
 {
-    double sc2 = max(1.0, k*k + p*p + mq2);
+    double scFr2 = pow2(Settings.freezingScale);
+    double sc2 = max(scFr2, k*k + p*p + mq2);
     double as = alphaSpline::alphaS(log(sc2), 4);
 
     //cout <<"HuHu "<< alphaSpline::alphaS(2*log(91.1), 4) << " "<< alphaSpline::alphaS(2*log(91.1), 5) << " "<< endl;
