@@ -15,6 +15,7 @@ struct dataPoint {
     int q2ID;
     double theor;
     double theor0, extra0;
+    double softFr;
 };
 
 class Fitter {

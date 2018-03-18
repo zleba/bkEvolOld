@@ -23,11 +23,20 @@ double Max(TGraph *gr) {
     return m;
 }
 
+double SoftExtra(double x)
+{
+    const double a = -0.08;
+    const double b =  8;
+    return pow(x, a) * pow(1 - x, b);
+}
 
 struct LinearFitter {
-    arma::mat A, Vinv;
+    arma::mat A, A0, Vinv; //A0 is theory without pomeron term
     arma::vec xVec, yData;
     arma::field<arma::mat> fiel;
+
+    double softFr;
+    double cT = -1, cS = -1; //theory, soft
 
     function<bool(double,double)> Selector =[](double x, double Q2)
         {return x < 0.01 && Q2 > 4 && Q2 < 1200;};
@@ -38,6 +47,7 @@ struct LinearFitter {
         int Npols = min<int>(fiel.n_rows, nPolTrial);
 
         A.zeros(500, Npols);
+        A0.zeros(500, Npols);
         yData.zeros(500);
         Vinv.zeros(500, 500);
 
@@ -54,11 +64,24 @@ struct LinearFitter {
                 double sig= fiel(i,3)(d,2);
                 double err= fiel(i,3)(d,3);
                 double theo= fiel(i,3)(d,4);
-                cout << "R " << x <<" "<< Q2 <<" "<< sig <<" "<< theo << endl;
+                double theo0 = fiel(i,3)(d,5);
 
                 if(!Selector(x,Q2)) continue;
 
+                //if(cT < 0 && cS < 0)
+                 {
+                    double softFr       = fiel(i,3)(d,6);
+                    double s = SoftExtra(x);
+                    cT = theo / ( theo0 + softFr* s);
+                    cS = cT * softFr;
+                    cout << "Holka " << cT << " "<< cS << endl;
+                    if(cS * cT < 0.01) cT = cS = -1;
+                }
+                cout << "R " << x <<" "<< Q2 <<" "<< sig <<" "<< theo << endl;
+
+
                 A(iData, i) = theo;
+                A0(iData, i) = theo0;
 
                 yData(iData) = sig;
                 double errAbs = err*sig * 1e-2;
@@ -69,6 +92,7 @@ struct LinearFitter {
             nPoints = iData;
         }
         A.resize(nPoints, Npols);
+        A0.resize(nPoints, Npols);
         yData.resize(nPoints);
         Vinv.resize(nPoints, nPoints);
 
@@ -94,29 +118,6 @@ struct LinearFitter {
     double getChi2() {
         //xVec(xVec.n_rows -1) = 0;
 
-
-           /*
-            xVec(0) = 0.0763032345566899;
-            xVec(1) =-0.212280978448689;
-            xVec(2) = 0.155851881485432;
-            xVec(3) =-0.217567288316786;
-            xVec(4) = 0.150753792375326;
-            xVec(5) =-0.205685093998909;
-            xVec(6) = 0.112218377180398;
-            xVec(7) =-0.216600357554853;
-            xVec(8) = 0.184430223889649;
-            xVec(9) =-0.261057717725635;
-            xVec(10) = 0.0819770824164152;
-            xVec(11) =-0.102573012933135;
-            xVec(12) = 0.0981829538941383;
-            xVec(13) =-0.219560103490949;
-            xVec(14) = 0.145735025871545;
-            xVec(15) =-0.0764536219649017;
-            xVec(16) =0;
-           */
-
-
-
         arma::vec yTheor = A*xVec;
 
         double sum = 0;
@@ -130,7 +131,7 @@ struct LinearFitter {
         arma::mat res = (yTheor - yData).t() * Vinv * (yTheor - yData);
 
         //cout << "RADEK size " << res.n_rows << " "<< res.n_cols << endl;
-        cout << "Helenka " << sum <<" "<< res(0,0) << endl;
+        cout << "HelenkaXcheck " << sum <<" "<< res(0,0) << endl;
         return res(0,0);
     }
     int getNdf() const { return yData.n_rows; }
@@ -286,7 +287,7 @@ struct LinearFitter {
 
         const double stepY = (rapMax - rapMin) / (Nrap-1);
 
-        const int NxPlots = 10;
+        const int NxPlots = 20;
         map<double,TGraph*> grMap;
         auto xiNodes = GetXnodes(fiel(0,0).n_cols, log(1e-2), log(1e6));
 
@@ -357,6 +358,7 @@ struct LinearFitter {
 
         TGraph *grTheor = new TGraph();
         TGraph *grF2 = new TGraph();
+        TGraph *grSoft = new TGraph();
 
         for(int k = 0; k < fiel(0,1).n_rows; ++k) {
 
@@ -369,16 +371,26 @@ struct LinearFitter {
 
             double f2 = 0, fl = 0;
 
+            /*
             for(int i = 0; i < A.n_cols; ++i) {
                 f2 += fiel(i,1)(k, idQ2) * xVec(i);
                 fl += fiel(i,2)(k, idQ2) * xVec(i);
             }
+            */
 
+            //New version
+            f2 = fiel(0,1)(k, idQ2) * cT;// + SoftExtra(x) * cS;
+            fl = fiel(0,2)(k, idQ2) * cT;// + SoftExtra(x) * cS;
+
+            double soft = SoftExtra(x)*cS;
             
-            double sRed = (y<1) ?  f2 - y*y/yPlus * fl : 0;
+            double sRed = (y<1) ?  f2 - y*y/yPlus * fl  + soft: 0;
+
+            cout << "Point "<< idQ2<<" "<< x <<" "<< sRed <<" :f2: "<< f2<< endl;
 
             grTheor->SetPoint(k, x, sRed);
             grF2->SetPoint(k, x, f2);
+            grSoft->SetPoint(k, x, soft * (sRed != 0) );
             //cout <<Q2<<" "<< x <<" "<< sRed << endl;
         }
 
@@ -454,6 +466,9 @@ struct LinearFitter {
         grTheor->Draw("l same");
         grF2->SetLineColor(kBlue);
         //grF2->Draw("l same");
+        grSoft->SetLineColor(kBlue);
+        grSoft->Draw("l same");
+
 
         TLatex *lat = new TLatex();
         lat->DrawLatexNDC(0.13,0.82, TString::Format("Q^{2} = %g GeV", Q2));
@@ -480,7 +495,9 @@ int main(int argc, char **argv)
         //lfitter.Load("../fitTestAdv.dat", k);
         //lfitter.Load("../fitSolNew.dat", k);
         //lfitter.Load("../fitTheb.dat", k);
-        lfitter.Load("../automate/fit2Parm_" + tag + ".dat", k);
+
+        //lfitter.Load("../automate/fit2Parm_" + tag + ".dat", k);
+        lfitter.Load("../automate/results/" + tag + ".dat", k);
 
         //return 0;
         lfitter.getMinimum();

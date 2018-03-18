@@ -1,5 +1,5 @@
 address=/home/zlebcr/prog/bkEvol/automate
-for i in 100 110 120 130 140
+for i in 90 100 110 120 
 do
    sed "s/currentAlphaS/0.$i/" $address/steers/config.ini > $address/steersRep/config_as$i.ini
    mkdir -p data/eq8/as$i

@@ -112,6 +112,7 @@ void Fitter::Init(string dirName)
     solver.LoadEvolKernels(dirName);
     solver.LoadConvKernels(dirName);
 
+    cout << "I am here RADEK" << endl;
 
 
     //New game
@@ -156,12 +157,14 @@ void Fitter::Init(string dirName)
         gMinuit->mnparm(i, "p"+to_string(i), get<0>(S.pars[i]),  0.1,  get<1>(S.pars[i]),  get<2>(S.pars[i]), ierflg);
     }
 
-    arglist[0] = 1500;
+    arglist[0] = S.maxIter;//  550; //nIterationsMax
+
+    cout << "nIterations is " <<S.maxIter << endl;
     arglist[1] = 1.;
     gMinuit->mnexcm("MIGRAD", arglist ,2,ierflg);
 
     cout << "Success" << endl;
-    cout << "Saving results" << endl;
+    cout << "Saving results " <<S.maxIter << endl;
 
     if(1) {
         //Save result
@@ -171,8 +174,8 @@ void Fitter::Init(string dirName)
         storage(0, 2) = Solver::vector2matrix(solver.FLrap);
         storage(0, 3) = Fitter::getPoints();
 
-        string nTag = to_string(lrint(1000*solver.asMZ));
-        storage.save("fit2Parm_" + nTag + ".dat");
+        //string nTag = to_string(lrint(1000*solver.asMZ));
+        storage.save("data/eq8gen/fit2Parm.dat");
         exit(0);
     }
 
@@ -484,6 +487,7 @@ void Fitter::AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
 
        p.theor0 = sRed;
        p.theor  = sRed;
+       p.softFr = 0;
     }
 }
 
@@ -492,7 +496,7 @@ void Fitter::AddTheory(vector<arma::vec> &F2, vector<arma::vec> &FL)
 //Chi2 with correction for the extra term
 double Fitter::getChi2Corr(int &nDF)
 {
-    auto Cond = [](double x, double Q2) {return x < 0.01 && Q2 > 4 && Q2 < 1200; };
+    auto Cond = [](double x, double Q2) {return x < 0.1 && Q2 > 4 && Q2 < 1200; };
 
 
     double A11, A12, A22; 
@@ -545,6 +549,8 @@ double Fitter::getChi2Corr(int &nDF)
         hardSum += c1 * p.theor0;
         softSum += c2 * p.extra0;
 
+        p.softFr = c2 / c1;
+
         chi2 += pow(p.sigma - p.theor, 2) * Vinv;
         //cout << p.Q2 <<" "<< p.x <<" : "<< p.sigma <<" "<< p.theor << endl;
         ++nDF;
@@ -573,13 +579,15 @@ double Fitter::getChi2(int &nDF)
 
 arma::mat Fitter::getPoints()
 {
-    arma::mat dataMat(data.size(), 5);
+    arma::mat dataMat(data.size(), 7);
     for(int i = 0; i < data.size(); ++i) {
        dataMat(i, 0) = data[i].x; 
        dataMat(i, 1) = data[i].Q2; 
        dataMat(i, 2) = data[i].sigma; 
        dataMat(i, 3) = data[i].err; 
        dataMat(i, 4) = data[i].theor; 
+       dataMat(i, 5) = data[i].theor0; 
+       dataMat(i, 6) = data[i].softFr; 
     }
     return dataMat;
 }

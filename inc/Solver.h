@@ -362,6 +362,10 @@ struct Solver {
 
     double KernelSub88(double l, double lp, double z);
 
+    double DGLAPtermSimp(double l, double lp, double z);
+    double Kernel9(double l, double lp, double z);
+    double Kernel9Diag(double l, double lp, double z);
+    double Kernel9zDiag(double l, double lp, double z);
 
 
     void InitMat();
@@ -369,7 +373,7 @@ struct Solver {
 
     void SaveEvolKernels(string file) {
         //string aStag = to_string(1000*asMZ);
-        file += "_as"+ to_string(lrint(1000*asMZ));
+        //file += "_as"+ to_string(lrint(1000*asMZ));
         cout << "Saving Evol Kernels to " << file << endl;
         matN.save(file+"/kernel_base.h5", arma::hdf5_binary);
         matNDiag.save(file+"/kernel_diag.h5", arma::hdf5_binary);
@@ -378,6 +382,7 @@ struct Solver {
     void LoadEvolKernels(string file) {
         matN.load(file+"/kernel_base.h5", arma::hdf5_binary);
         matNDiag.load(file+"/kernel_diag.h5", arma::hdf5_binary);
+        cout << "RADEK size " << matNDiag.slice(0).n_rows << endl;
         matNInv.load(file+"/kernel_inv.h5", arma::hdf5_binary);
     }
 

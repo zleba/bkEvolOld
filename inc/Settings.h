@@ -28,6 +28,7 @@ struct Settings {
     string inputDir, outputDir;
 
     string funStr;
+    int maxIter;
     vector<tuple<double,double,double>> pars;
     int nPar;
     double (*fitFun)(double kT2, double x, const double *p);
@@ -68,6 +69,7 @@ struct Settings {
             outputDir = tree.get<string>("Files.outputDir");
             
             //Fit Properties
+            maxIter = tree.get<int>("Fit.maxIter");
             funStr = tree.get<string>("Fit.function");
             bool isDone = false;
             nPar = 0;

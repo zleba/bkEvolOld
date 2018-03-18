@@ -82,11 +82,15 @@ int main(int argc, char **argv)
     //return 0;
 
 
+
+    /*
     Fitter fitter(cin);
     cout << "I am here radek " << endl;
-    fitter.Init("data/eq8");
+    fitter.Init("data/eq8gen");
     MPI_Finalize();
     return 0;
+    */
+
 
 
 
@@ -107,13 +111,14 @@ int main(int argc, char **argv)
         //return sqrt(x)*(1-x)/(1 + sqrt(kT2));
             //});
 
-    //sol512.LoadConvKernels("data");
-
+    sol512.LoadConvKernels("data/eq8gen");
+    //sol512.LoadEvolKernels("data/eq8gen");
     cout << "Weights calculated " << endl;
     sol512.InitMat();
-    //sol512.EvolveNew();
+    sol512.EvolveNew();
+    sol512.PrintBaseGrid();
 
-    sol512.SaveEvolKernels(sol512.outputDir);
+    //sol512.SaveEvolKernels("data");
     return 0;
     sol512.CalcF2L();
 

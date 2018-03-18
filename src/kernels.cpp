@@ -445,7 +445,6 @@ double Solver::KernelSub84Diag(double l, double lp, double z)
 
 
 
-
 //Return z/6*Pgg - 1
 double PggMod(double z)
 {
@@ -546,8 +545,6 @@ double Solver::Kernel85zDiag(double l, double lp, double x)
     }
 
 
-
-
     double as = alphaS(l, lp);
     putZero = true;
     double ker = lp*lp/(2*M_PI) *  1/(l*l); //constant before
@@ -600,6 +597,102 @@ double Solver::Kernel85zDiag(double l, double lp, double x)
     return res;
 }
 
+////////////////////////////////////////////////
+//New equation 9 (with eps reg) 
+//BFKL with DGLAP
+////////////////////////////////////////////////
+
+double Solver::DGLAPtermSimp(double l, double lp, double z)
+{
+    double as = alphaS(l, lp);
+    double ker = lp*lp/(2*M_PI) *  1/(l*l); //constant before
+
+    double Int = 2 * M_PI;
+    double res = PggMod(z) * as * ker * Int;
+
+    return res;
+}
+
+double Solver::Kernel9(double l, double lp, double z)
+{
+    //Adding normal BFKL
+    double res =  Kernel83(l, lp, z);
+
+    if(lp < l )
+        res += DGLAPtermSimp(l, lp, z);
+
+    double as = alphaS(l, lp);
+    if(lp >= l && lp < l / sqrt(z)) {
+        res += as * PggMod(z * lp*lp / l / l);
+    }
+
+    return res;
+}
+
+double Solver::Kernel9Diag(double l, double lp, double z)
+{
+    //Adding normal BFKL
+    return Kernel79Diag(l, lp, z);
+}
+
+
+//Off-diagonal z-diaginal kernel with F(k+q)
+double Solver::Kernel9zDiag(double l, double lp, double x)
+{
+    const double stepSize = (rapMax - rapMin) / (Nrap - 1);
+
+    static double harVals[5000];
+    static bool isInit = false;
+    if(!isInit) {
+        for(int nStep = 0; nStep < 5000; ++nStep)
+            harVals[nStep] = Harmonic(stepSize, nStep);
+        isInit = true;
+    }
+
+
+    double as = alphaS(l, lp);
+    putZero = true;
+    double ker = lp*lp/(2*M_PI) *  1/(l*l); //constant before
+
+    //lp < l
+    if(lp >= l) return 0;
+    double Int = 2 * M_PI;
+
+    const int nf = 4;
+
+    double rap = log(1/x);
+    double nStepReal = (rap-rapMin)/(rapMax-rapMin) * (Nrap - 1) + 1;
+    int nStep = round(nStepReal);
+    assert(abs(nStepReal-nStep) < 1e-2);
+
+    double sum = harVals[nStep];
+    //cout << "" << sum / harVals[nStep] << endl;
+
+    //assert(x != 1);
+    //cout << "x val = " << x << endl;
+    sum += (33 - 2*nf) / 36.0;
+
+    if(nStep != 1)
+        sum += log(1 - x/exp(-rapMin));
+    else //For the begining?
+        sum += log(1 - exp(-stepSize));
+
+    double res = as * sum * ker * Int;
+
+    return res;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 ////////////////////////////////////////////////
 //Equation 86 (with eps reg) 
@@ -627,6 +720,11 @@ double Solver::Kernel86zDiag(double l, double lp, double x)
 {
     return Kernel85zDiag(l, lp, x);
 }
+
+
+
+
+
 
 ////////////////////////////////////////////////
 //Equation 87 (with eps reg) 

@@ -6,3 +6,5 @@ convol: convol.cpp ../src/alphaSpline.cpp
 
 merge: merge.cpp
 	g++47 -fopenmp -std=c++11 -g -O3 -I$(ARMAinc)  $<  -Wl,-R$(ARMAlib)  -L$(ARMAlib)  -larmadillo -o $@
+
+

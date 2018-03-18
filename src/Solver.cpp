@@ -60,9 +60,15 @@ void Solver::InitMat()
 
                     //mTemp(i,j) += KernelBFKL(l, lp, z) * w;
                     //mTemp(i,i) += KernelBFKLDiag(l, lp, z) * w;
-                    mTemp(i,j) += Kernel86(l, lp, z) * w;
-                    mTemp(i,i) += Kernel86Diag(l, lp, z) * w;
-                    mDiagTemp(i,j) += Kernel86zDiag(l, lp, z) * w;
+
+                    //mTemp(i,j) += Kernel86(l, lp, z) * w;
+                    //mTemp(i,i) += Kernel86Diag(l, lp, z) * w;
+                    //mDiagTemp(i,j) += Kernel86zDiag(l, lp, z) * w;
+
+                    mTemp(i,j) += Kernel9(l, lp, z) * w;
+                    mTemp(i,i) += Kernel9Diag(l, lp, z) * w;
+                    mDiagTemp(i,j) += Kernel9zDiag(l, lp, z) * w;
+
                 }
 
 
@@ -200,6 +206,7 @@ void Solver::EvolveNew()
 
     //Classical approach
     if(start == 0) {
+        cout << "Size of matrixes " << N <<" : "<< matNDiag.slice(0).n_rows <<" "<< matNDiag.slice(0).n_cols <<  endl;
         arma::mat MatEq = arma::mat(N,N,arma::fill::eye) -  matNDiag.slice(0);
         cout << "Is put Zero " << putZero << endl;
         if(putZero) {
