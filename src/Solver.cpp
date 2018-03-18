@@ -199,8 +199,10 @@ void Solver::EvolveNew()
 
 
     bool doGPU = true;
-    if(doGPU & !gpu.isInited) gpu.InitAll(matN, convF2, convFL);
-    if(doGPU) gpu.ResetVector();
+#ifdef hasGPU
+    if(!gpu.isInited) gpu.InitAll(matN, convF2, convFL);
+    gpu.ResetVector();
+#endif
 
     int start = 0;
 
@@ -236,7 +238,23 @@ void Solver::EvolveNew()
         //openMPI treatment
         int start=1, end;
 
-        if(!doGPU) {
+        #ifdef hasGPU //with GPU
+            if(y > 1) {
+                gpu.ConvoluteAll(y);
+                //gpu.GetResult(y, yTemp);
+                gpu.GetResults(y, yTemp, F2rap[y], FLrap[y]);
+
+            }
+            /*
+               cout << "Radek start "<<y << endl;
+            //cout << myVec << yTemp << endl;
+            for(int i = 0; i < myVec.n_elem; ++i)
+            cout << i <<" " << myVec(i) <<" "<< yTemp(i) << endl;
+            cout << "Radek end " <<y<< endl;
+            if(y > 2) exit(0);
+            */
+     #else //no GPU
+        //if(!doGPU) {
             tie(start,end) = GetStartEnd(1, y-1); //from 1 to y-1
             //cout << "Start+end|nrap " << start <<" "<< end <<"|" << y-1<< endl;
             //Remaining without mult
@@ -244,30 +262,8 @@ void Solver::EvolveNew()
                 yTemp += matN.slice(d) * PhiRapN[y-d];
 
             MPI_Allreduce(MPI_IN_PLACE, yTemp.memptr(), yTemp.n_elem,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-        }
-        else {
-            if(y > 1) {
-                gpu.ConvoluteAll(y);
-                //gpu.GetResult(y, yTemp);
-                gpu.GetResults(y, yTemp, F2rap[y], FLrap[y]);
-
-            }
-
-            /*
-               cout << "Radek start "<<y << endl;
-            //cout << myVec << yTemp << endl;
-            for(int i = 0; i < myVec.n_elem; ++i)
-            cout << i <<" " << myVec(i) <<" "<< yTemp(i) << endl;
-
-            cout << "Radek end " <<y<< endl;
-            if(y > 2) exit(0);
-            */
-        }
-
-
-
-
-
+        //}
+    #endif
 
         yTemp += 0.5 * matN.slice(y) * PhiRapN[0];
 
@@ -300,7 +296,9 @@ void Solver::EvolveNew()
         F2rap[y] += 0.5*convF2.slice(0) * PhiRapN[y];
         FLrap[y] += 0.5*convFL.slice(0) * PhiRapN[y];
 
-        if(doGPU) gpu.SetPhi(y, PhiRapN[y]);
+        #ifdef hasGPU
+            gpu.SetPhi(y, PhiRapN[y]);
+        #endif
 
         //PhiRapN[y] =  IterSolution(matEq, double factor, const arma::vec &y);
 

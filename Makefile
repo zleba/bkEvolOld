@@ -5,7 +5,6 @@ LIBS := $(shell root-config --libs)
 armaLib=/home/zlebcr/libs/arma/armalib/lib64
 armaInc=/home/zlebcr/libs/arma/armalib/include
 
-HELPER=/home/radek/Dropbox/patrick/undolding/PlottingHelper
 CC=g++
 CC=mpic++
 
@@ -16,8 +15,9 @@ CUDA=/usr/local/cuda-8.0/bin/nvcc
 	#g++ -g -O3 $(CFLAGS)  $^ $(LIBS) -lgsl -lgslcblas -fopenmp -o $@ 
 
 
-SRCS = src/Solver.cpp  src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp src/alphaSpline.cpp src/Spline.cpp  src/FunctionReader.cpp
-OBJS = obj/Solver.o obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o obj/gpuBooster.o obj/Fitter.o obj/alphaSpline.o obj/Spline.o obj/FunctionReader.o
+SRCS = src/Solver.cpp  src/iterate.cpp src/kernels.cpp src/main.cpp src/integration.cpp src/Fitter.cpp src/alphaSpline.cpp src/Spline.cpp  
+OBJS = obj/Solver.o obj/iterate.o obj/kernels.o obj/main.o  obj/integration.o  obj/Fitter.o obj/alphaSpline.o obj/Spline.o  #obj/gpuBooster.o
+
 
 
 #obj/%.o: src/%.cpp inc/Solver.h inc/integration.h

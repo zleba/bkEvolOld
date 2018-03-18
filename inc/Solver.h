@@ -13,7 +13,9 @@
 #include <armadillo>
 #include <mpi.h>
 
-#include "gpuBooster.h"
+#ifdef hasGPU
+    #include "gpuBooster.h"
+#endif
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -21,6 +23,7 @@
 #include "alphaSpline.h"
 
 #include "Settings.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -313,7 +316,9 @@ struct Solver {
 
     arma::mat extMat, redMat;
 
+#ifdef hasGPU
     gpuBooster gpu;
+#endif
 
     pair<double,double> GetKerPar(double l, double lp);
     double Delta(double z, double k2, double q2);
