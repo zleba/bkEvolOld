@@ -58,16 +58,16 @@ void Solver::InitMat()
 
                 if(!toTrivial || i % fac == 0) {
 
-                    //mTemp(i,j) += KernelBFKL(l, lp, z) * w;
-                    //mTemp(i,i) += KernelBFKLDiag(l, lp, z) * w;
+                    mTemp(i,j) += KernelBFKL(l, lp, z) * w;
+                    mTemp(i,i) += KernelBFKLDiag(l, lp, z) * w;
 
                     //mTemp(i,j) += Kernel86(l, lp, z) * w;
                     //mTemp(i,i) += Kernel86Diag(l, lp, z) * w;
                     //mDiagTemp(i,j) += Kernel86zDiag(l, lp, z) * w;
 
-                    mTemp(i,j) += Kernel9(l, lp, z) * w;
-                    mTemp(i,i) += Kernel9Diag(l, lp, z) * w;
-                    mDiagTemp(i,j) += Kernel9zDiag(l, lp, z) * w;
+                    //mTemp(i,j) += Kernel9(l, lp, z) * w;
+                    //mTemp(i,i) += Kernel9Diag(l, lp, z) * w;
+                    //mDiagTemp(i,j) += Kernel9zDiag(l, lp, z) * w;
 
                 }
 

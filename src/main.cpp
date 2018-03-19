@@ -77,8 +77,8 @@ int main(int argc, char **argv)
 
 
 
-    auto pubSol32 = ReadFile("../BKsolver/bkresult32.dat");
-    auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
+    //auto pubSol32 = ReadFile("../BKsolver/bkresult32.dat");
+    //auto pubSol512 = ReadFile("../BKsolver/bkresult512.dat");
     //return 0;
 
 
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
         //return sqrt(x)*(1-x)/(1 + sqrt(kT2));
             //});
 
-    sol512.LoadConvKernels("data/eq8gen");
+    //sol512.LoadConvKernels("data/eq8gen");
     //sol512.LoadEvolKernels("data/eq8gen");
     cout << "Weights calculated " << endl;
     sol512.InitMat();

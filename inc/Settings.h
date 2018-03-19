@@ -157,10 +157,23 @@ struct Settings {
     {
         //double (*fun)(double x);
 
+        string f = __FILE__;
+        f.substr(0, f.size() -  10);//inc/Settings.h 
+
+        #define STRINGIFY(x) #x
+        #define TOSTRING(x) STRINGIFY(x)
+
+        string n = TOSTRING(pwdDir);
+        n.substr(0, f.size() - 14);
+        n += "/obj/fitFun.so";
+        cout <<"RADEK " <<  f <<" "<< n << endl;
+
+
+        
         WriteFunction(str);
-        system("g++ fitFun.cpp -o /home/zlebcr/prog/bkEvol/obj/fitFun.so -shared -fPIC");
+        system(("g++ fitFun.cpp -o " + n + " -shared -fPIC").c_str());
         //system("sleep 5");
-        void *lib = dlopen("/home/zlebcr/prog/bkEvol/obj/fitFun.so", RTLD_LAZY);
+        void *lib = dlopen(n.c_str(), RTLD_LAZY);
         assert(lib);
 
         fitFun = reinterpret_cast<double (*)(double,double,const double*)>(dlsym(lib, "fitFun"));
