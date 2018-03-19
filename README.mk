@@ -35,6 +35,6 @@ It can speed up the calculation substantially but nVidia GPU is required.
 Installation
 The code is written in such a way to be able to be executed on usual laptop.
 It requires:
--- ROOT, as Minuit is used for minimization.
+-- ROOT 6, as Minuit is used for minimization.
 -- HDF5 library for writing kernels to the files
--- openMPI libraries
+-- openMPI libraries (in case of single machinge they do not have use but must be installed)
