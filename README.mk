@@ -33,4 +33,7 @@ In this case, the BLAS procedures are evaluated at GPU within CUDA.
 It can speed up the calculation substantionaly but nVidia GPU is required.
 
 Instalation
-The code is writen in such a way to be able to be executed on standard PC.
+The code is writen in such a way to be able to be executed on usuall laptop.
+-- instalation of ROOT, as Minuit is used for minimalization.
+-- HDF5 library for writing kernels to the files
+-- openMPI libraries
